@@ -16,16 +16,16 @@ const FA = {
 
   // Categories (Internal IDs remain untouched)
   categories: {
-    'Armin Department': 'دپارتمان آرمین',
+    'Armin Department': 'املاک آرمین',
+    'Latifi Store': 'لطیفی استور',
     'Gold Sassan': 'طلا ساسان',
-    'KhoshKam': 'خوشکام',
-    'Latifi Store': 'لطیفی استور'
+    'KhoshKam': 'خوشکام'
   },
   categoryShort: {
-    'Armin Department': 'آرمین',
+    'Armin Department': 'املاک آرمین',
+    'Latifi Store': 'لطیفی',
     'Gold Sassan': 'طلا ساسان',
-    'KhoshKam': 'خوشکام',
-    'Latifi Store': 'لطیفی'
+    'KhoshKam': 'خوشکام'
   },
 
   // Priorities

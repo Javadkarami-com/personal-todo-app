@@ -135,10 +135,6 @@
   const aiApiKeyInput       = qs('#ai-api-key-input');
   const aiApiToggleVis      = qs('#ai-api-toggle-vis');
   const aiModelSelect       = qs('#ai-model-select');
-  const aiFetchModelsBtn    = qs('#ai-fetch-models-btn');
-  const aiModelsFetchInfo   = qs('#ai-models-fetch-info');
-  const aiCustomModelBox    = qs('#ai-custom-model-box');
-  const aiCustomModelInput  = qs('#ai-custom-model-input');
   const aiBaseUrlInput      = qs('#ai-base-url-input');
   const aiTestBtn           = qs('#ai-test-btn');
   const aiTestStatus        = qs('#ai-test-status');
@@ -682,10 +678,10 @@
   function createTask(title, desc, category, priority, reminderAt) {
     const tasks = getTasks();
     const now = new Date().toISOString();
-    tasks.unshift({
+    const newTask = {
       id: uid(),
       title: title.trim(),
-      description: desc.trim(),
+      description: (desc || '').trim(),
       category: category,
       priority: priority || 'normal',
       reminderAt: reminderAt || null,
@@ -694,7 +690,8 @@
       createdAt: now,
       updatedAt: now,
       completedAt: null
-    });
+    };
+    tasks.unshift(newTask);
     saveTasks(tasks);
     renderTasks();
     showToast(FA.toastTaskSaved, 'success');
@@ -702,6 +699,7 @@
     if (reminderAt) {
       requestNotificationPermission();
     }
+    return newTask;
   }
 
   function completeTask(id, cardEl, roundBox) {
@@ -920,10 +918,20 @@
         <div class="grid grid-cols-2 gap-2" id="edit-cat-selector">
           <div class="cat-choice flex flex-col items-center justify-center p-3 rounded-2xl border-2 ${task.category === 'Armin Department' ? 'border-primary-600 bg-primary-50/30' : 'border-borderwarm'} bg-white cursor-pointer relative text-center" data-cat="Armin Department" role="button">
             <div class="w-9 h-9 rounded-xl bg-charcoal p-1.5 flex items-center justify-center mb-1.5 flex-shrink-0">
-              <img src="assets/armin.png" alt="آرمین" class="w-full h-full object-contain" />
+              <img src="assets/armin.png" alt="املاک آرمین" class="w-full h-full object-contain" />
             </div>
-            <span class="text-xs font-semibold text-charcoal truncate w-full">دپارتمان آرمین</span>
+            <span class="text-xs font-semibold text-charcoal truncate w-full">املاک آرمین</span>
             <span class="choice-check absolute top-1.5 end-1.5 w-4 h-4 rounded-full bg-primary-600 text-white ${task.category === 'Armin Department' ? 'flex' : 'hidden'} items-center justify-center">
+              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+          </div>
+
+          <div class="cat-choice flex flex-col items-center justify-center p-3 rounded-2xl border-2 ${task.category === 'Latifi Store' ? 'border-primary-600 bg-primary-50/30' : 'border-borderwarm'} bg-white cursor-pointer relative text-center" data-cat="Latifi Store" role="button">
+            <div class="w-9 h-9 rounded-xl bg-white border border-orange-300 p-1 flex items-center justify-center mb-1.5 flex-shrink-0">
+              <img src="assets/latifi.png" alt="لطیفی" class="w-full h-full object-contain" />
+            </div>
+            <span class="text-xs font-semibold text-charcoal truncate w-full">لطیفی استور</span>
+            <span class="choice-check absolute top-1.5 end-1.5 w-4 h-4 rounded-full bg-primary-600 text-white ${task.category === 'Latifi Store' ? 'flex' : 'hidden'} items-center justify-center">
               <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             </span>
           </div>
@@ -944,16 +952,6 @@
             </div>
             <span class="text-xs font-semibold text-charcoal truncate w-full">خوشکام</span>
             <span class="choice-check absolute top-1.5 end-1.5 w-4 h-4 rounded-full bg-primary-600 text-white ${task.category === 'KhoshKam' ? 'flex' : 'hidden'} items-center justify-center">
-              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            </span>
-          </div>
-
-          <div class="cat-choice flex flex-col items-center justify-center p-3 rounded-2xl border-2 ${task.category === 'Latifi Store' ? 'border-primary-600 bg-primary-50/30' : 'border-borderwarm'} bg-white cursor-pointer relative text-center" data-cat="Latifi Store" role="button">
-            <div class="w-9 h-9 rounded-xl bg-white border border-orange-300 p-1 flex items-center justify-center mb-1.5 flex-shrink-0">
-              <img src="assets/latifi.png" alt="لطیفی" class="w-full h-full object-contain" />
-            </div>
-            <span class="text-xs font-semibold text-charcoal truncate w-full">لطیفی استور</span>
-            <span class="choice-check absolute top-1.5 end-1.5 w-4 h-4 rounded-full bg-primary-600 text-white ${task.category === 'Latifi Store' ? 'flex' : 'hidden'} items-center justify-center">
               <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             </span>
           </div>
@@ -1347,86 +1345,50 @@
     }
   }
 
+  function selectAiModelCard(modelId) {
+    const validModels = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-2.5-pro'];
+    const chosen = validModels.includes(modelId) ? modelId : 'gemini-2.5-flash';
+    if (aiModelSelect) aiModelSelect.value = chosen;
+
+    const cards = qsa('.ai-model-card');
+    cards.forEach(card => {
+      const isSelected = card.dataset.model === chosen;
+      const radio = card.querySelector('.ai-model-radio');
+      const dot = radio ? radio.querySelector('div') : null;
+
+      if (isSelected) {
+        card.classList.add('border-primary-600', 'bg-primary-50/40');
+        card.classList.remove('border-borderwarm', 'bg-white');
+        if (radio) {
+          radio.classList.add('border-primary-600');
+          radio.classList.remove('border-gray-300');
+        }
+        if (dot) dot.classList.remove('hidden');
+      } else {
+        card.classList.remove('border-primary-600', 'bg-primary-50/40');
+        card.classList.add('border-borderwarm', 'bg-white');
+        if (radio) {
+          radio.classList.remove('border-primary-600');
+          radio.classList.add('border-gray-300');
+        }
+        if (dot) dot.classList.add('hidden');
+      }
+    });
+  }
+
   function initAiSection() {
     updateAiBadge();
+
+    qsa('.ai-model-card').forEach(card => {
+      card.addEventListener('click', () => {
+        selectAiModelCard(card.dataset.model);
+      });
+    });
 
     if (aiChatHistory.length === 0) {
       renderAiWelcome();
     } else {
       renderAiMessages();
-    }
-  }
-
-  async function fetchLiveGeminiModels() {
-    const key = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
-    if (!key) {
-      showToast('لطفاً ابتدا کلید API را وارد کنید', 'error');
-      aiApiKeyInput.focus();
-      return;
-    }
-
-    const baseUrl = (aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '') || 'https://generativelanguage.googleapis.com';
-    const cleanBase = baseUrl.replace(/\/+$/, '');
-
-    if (aiModelsFetchInfo) {
-      aiModelsFetchInfo.textContent = 'در حال دریافت لیست مدل‌ها از گوگل...';
-      aiModelsFetchInfo.classList.remove('hidden', 'text-red-600', 'text-green-600');
-      aiModelsFetchInfo.classList.add('text-muted');
-    }
-
-    try {
-      const url = `${cleanBase}/v1beta/models?key=${key}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        const errMsg = errJson?.error?.message || res.statusText || `کد ${res.status}`;
-        if (aiModelsFetchInfo) {
-          aiModelsFetchInfo.textContent = `خطا در دریافت لیست مدل‌ها: ${errMsg}`;
-          aiModelsFetchInfo.classList.remove('text-muted');
-          aiModelsFetchInfo.classList.add('text-red-600');
-        }
-        return;
-      }
-
-      const data = await res.json();
-      const models = (data.models || [])
-        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-        .map(m => m.name.replace(/^models\//, ''));
-
-      if (models.length === 0) {
-        if (aiModelsFetchInfo) {
-          aiModelsFetchInfo.textContent = 'هیچ مدلی با قابلیت تولید متن یافت نشد.';
-          aiModelsFetchInfo.classList.add('text-red-600');
-        }
-        return;
-      }
-
-      const currentSelection = aiModelSelect.value;
-      aiModelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('') +
-        `<option value="custom">سایر / مدل دلخواه (Custom)...</option>`;
-
-      if (models.includes(currentSelection)) {
-        aiModelSelect.value = currentSelection;
-      } else if (models.includes('gemini-2.5-flash')) {
-        aiModelSelect.value = 'gemini-2.5-flash';
-      } else if (models.includes('gemini-2.0-flash')) {
-        aiModelSelect.value = 'gemini-2.0-flash';
-      } else {
-        aiModelSelect.value = models[0];
-      }
-
-      if (aiModelsFetchInfo) {
-        aiModelsFetchInfo.textContent = `تعداد ${toFaDigits(models.length)} مدل فعال با موفقیت دریافت و در لیست قرار گرفت ✓`;
-        aiModelsFetchInfo.classList.remove('text-muted', 'text-red-600');
-        aiModelsFetchInfo.classList.add('text-green-600');
-      }
-      showToast('لیست مدل‌های فعال بروز شد', 'success');
-    } catch (err) {
-      if (aiModelsFetchInfo) {
-        aiModelsFetchInfo.textContent = `عدم دسترسی به سرور: ${err.message}. لطفاً وضعیت اتصال VPN را بررسی کنید.`;
-        aiModelsFetchInfo.classList.remove('text-muted');
-        aiModelsFetchInfo.classList.add('text-red-600');
-      }
     }
   }
 
@@ -1440,15 +1402,7 @@
       aiTestStatus.textContent = '';
     }
 
-    const standardModels = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-    if (standardModels.includes(config.model)) {
-      if (aiModelSelect) aiModelSelect.value = config.model;
-      if (aiCustomModelBox) aiCustomModelBox.classList.add('hidden');
-    } else {
-      if (aiModelSelect) aiModelSelect.value = 'custom';
-      if (aiCustomModelBox) aiCustomModelBox.classList.remove('hidden');
-      if (aiCustomModelInput) aiCustomModelInput.value = config.model;
-    }
+    selectAiModelCard(config.model);
 
     openFlowbiteModal('aiConfig');
     setTimeout(() => {
@@ -1458,10 +1412,7 @@
 
   function handleSaveAiConfig() {
     const rawKey = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
-    let selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
-    if (selectedModel === 'custom' && aiCustomModelInput) {
-      selectedModel = aiCustomModelInput.value.trim() || 'gemini-2.5-flash';
-    }
+    const selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
     const rawBaseUrl = aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '';
 
     if (rawKey) {
@@ -1491,11 +1442,7 @@
       return;
     }
 
-    let model = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
-    if (model === 'custom' && aiCustomModelInput) {
-      model = aiCustomModelInput.value.trim() || 'gemini-2.5-flash';
-    }
-
+    const model = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
     const baseUrl = (aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '') || 'https://generativelanguage.googleapis.com';
     const cleanBase = baseUrl.replace(/\/+$/, '');
 
@@ -1530,7 +1477,7 @@
         } else if (res.status === 400 && errMessage.includes('API_KEY')) {
           setAiTestStatus('خطای ۴۰۰: کلید API نامعتبر است. لطفاً کلید دریافتی از Google AI Studio را مجدداً کپی کنید.', 'error');
         } else if (res.status === 404) {
-          setAiTestStatus(`خطای ۴۰۴: مدل «${model}» در این تاریخ یا این سرور فعال نیست. دکمه «دریافت لیست زنده مدل‌ها» را بزنید و یک مدل فعال انتخاب کنید.`, 'error');
+          setAiTestStatus(`خطای ۴۰۴: مدل «${model}» فعال نیست. لطفاً مدل دیگری انتخاب کنید.`, 'error');
         } else {
           setAiTestStatus(`خطا از سرور گوگل (کد ${res.status}): ${errMessage}`, 'error');
         }
@@ -1622,8 +1569,11 @@
     const tasks = getTasks();
     const activeTasks = tasks.filter(t => !t.done);
     const finishedTasks = tasks.filter(t => t.done);
+    const now = new Date();
+    const nowIso = now.toISOString();
 
-    let summary = `اطلاعات کارها و زمان‌بندی‌های من:\n\n`;
+    let summary = `اطلاعات سیستمی زمان جاری:\n`;
+    summary += `تاریخ و زمان امروز: ${formatFaCurrentDay()} (میلادی: ${nowIso.slice(0, 10)} - ساعت: ${nowIso.slice(11, 16)})\n\n`;
 
     summary += `کارهای فعال (${toFaDigits(activeTasks.length)} مورد):\n`;
     if (activeTasks.length === 0) {
@@ -1651,6 +1601,15 @@
       });
     }
 
+    const notes = getNotes();
+    if (notes.length > 0) {
+      summary += `\nیادداشت‌های کاربر (${toFaDigits(notes.length)} مورد):\n`;
+      notes.slice(0, 8).forEach((n, i) => {
+        const catName = n.category ? (FA.categories[n.category] || n.category) : 'عمومی';
+        summary += `${i + 1}. [${catName}] ${n.title ? n.title + ': ' : ''}${n.content.slice(0, 70)}\n`;
+      });
+    }
+
     return summary;
   }
 
@@ -1668,10 +1627,28 @@
     }
 
     const context = buildAppContextPrompt();
-    const strictSystemInstruction = `دستورالعمل حیاتی و بدون استثنا:
-پاسخ شما باید بسیار کوتاه، فشرده و صرفاً یک خلاصه در چند پاراگراف باشد.
-کاملاً و اکیداً بدون هیچ کلمه اضافی: هرگز سلام، احوالپرسی، تعارف، مقدمه‌چینی، نتیجه‌گیری، عبارات انگیزشی یا جملات پایانی ننویسید.
-مستقیماً از اولین کلمه، فقط و فقط در مورد کارها (tasks)، اولویت‌ها، وضعیت انجام آن‌ها و زمان‌بندی‌ها و یادآورها (schedules) صحبت کنید.`;
+    const strictSystemInstruction = `دستورالعمل حیاتی و اکید هوش مصنوعی:
+۱. در صورتی که کاربر درخواست افزودن، ثبت یا ایجاد کار جدیدی را داده باشد (مثلاً «یک کار اضافه کن»، «تماس با ساسان رو بذار تو کارها»، «add task»، «یادآور تنظیم کن» و موارد مشابه):
+حتماً در پاسخ خود باید یک بلوک عملیاتی دقیقاً با فرمت زیر درج کنی:
+ACTION:ADD_TASK
+{"title":"عنوان دقیق کار","category":"Armin Department|Latifi Store|Gold Sassan|KhoshKam","priority":"urgent|normal","reminderAt":"YYYY-MM-DDTHH:MM" یا null,"description":"توضیحات یا خالی"}
+
+راهنمای مقادیر:
+- category: باید دقیقاً یکی از این ۴ مقدار انگلیسی باشد:
+  * "Armin Department" (املاک آرمین)
+  * "Latifi Store" (لطیفی استور)
+  * "Gold Sassan" (طلا ساسان)
+  * "KhoshKam" (خوشکام)
+  اگر کاربر نام دسته‌بندی را مشخص نکرده بود، بر اساس متن مرتبط‌ترین را انتخاب کن یا به عنوان پیش‌فرض "Armin Department" قرار بده.
+- priority: فقط یکی از دو مقدار "urgent" (فوری) یا "normal" (عادی).
+- reminderAt: اگر کاربر ساعت یا روزی برای یادآوری تعیین کرده است، آن را بر مبنای تاریخ میلادی جاری محاسبه کن و به فرمت ISO مثل "2026-10-30T10:00" بنویس؛ اگر مشخص نشده بود مقدار null بگذار.
+- description: توضیحات کار در صورت وجود، یا رشته خالی "".
+
+۲. لحن و سبک پاسخ به کاربر:
+پاسخ شما باید بسیار کوتاه، فشرده و صرفاً یک خلاصه در چند پاراگراف باشد بدون هیچ کلمه اضافی.
+اکیداً هیچ کلمه اضافی، سلام، احوالپرسی، تعارف، تشکر، مقدمه‌چینی، نتیجه‌گیری، جملات انگیزشی یا عبارات پایانی ننویسید.
+فقط و فقط مستقیماً از کارها (tasks)، اولویت‌ها، وضعیت انجام آن‌ها و زمان‌بندی‌ها و یادآورها (schedules) صحبت کنید.
+اگر کاری اضافه کردی، صرفاً در یک خط کوتاه ذکر کن که کار با مشخصات مربوطه به لیست اضافه شد.`;
 
     const payload = {
       system_instruction: {
@@ -1716,7 +1693,7 @@
         throw new Error('کلید API وارد شده نامعتبر است (خطای ۴۰۰). لطفاً کلید خود را در دکمه تنظیمات بالای صفحه بررسی کنید.');
       }
       if (response.status === 404) {
-        throw new Error(`مدل «${config.model}» در این تاریخ یا این سرور فعال نیست (خطای ۴۰۴). لطفاً از دکمه تنظیمات بالای صفحه، دکمه «دریافت لیست زنده مدل‌ها» را بزنید و یک مدل فعال دیگر انتخاب فرمایید.`);
+        throw new Error(`مدل «${config.model}» فعال نیست (خطای ۴۰۴). لطفاً از دکمه تنظیمات بالای صفحه مدل دیگری انتخاب فرمایید.`);
       }
       throw new Error(`پاسخ ناموفق از گوگل (کد ${response.status}): ${errMessage}`);
     }
@@ -1748,7 +1725,53 @@
       const responseText = await callGeminiApi(cleanPrompt);
       removeAiThinking();
       if (responseText) {
-        aiChatHistory.push({ role: 'assistant', text: responseText });
+        // Parse any ACTION:ADD_TASK blocks
+        const actionRegex = /ACTION:ADD_TASK\s*(\{[\s\S]*?\})/g;
+        let match;
+        const addedTasks = [];
+        while ((match = actionRegex.exec(responseText)) !== null) {
+          try {
+            const rawJson = match[1].replace(/[\u200B-\u200D\uFEFF]/g, '');
+            const data = JSON.parse(rawJson);
+            if (data && data.title) {
+              let cat = data.category;
+              const validCats = ['Armin Department', 'Latifi Store', 'Gold Sassan', 'KhoshKam'];
+              if (!validCats.includes(cat)) {
+                if (/لطیفی/i.test(cat)) cat = 'Latifi Store';
+                else if (/ساسان/i.test(cat)) cat = 'Gold Sassan';
+                else if (/خوشکام/i.test(cat)) cat = 'KhoshKam';
+                else cat = 'Armin Department';
+              }
+              const prio = (data.priority === 'urgent') ? 'urgent' : 'normal';
+              let rem = data.reminderAt || null;
+              if (rem && isNaN(new Date(rem).getTime())) rem = null;
+              const desc = data.description || '';
+              const created = createTask(data.title, desc, cat, prio, rem);
+              if (created) addedTasks.push(created);
+            }
+          } catch (pe) {
+            console.error('Error parsing AI action JSON:', pe);
+          }
+        }
+
+        // Clean response from raw ACTION block
+        let cleanText = responseText.replace(/ACTION:ADD_TASK\s*(\{[\s\S]*?\})/g, '').trim();
+        if (addedTasks.length > 0) {
+          const addedList = addedTasks.map(t => {
+            const catName = FA.categories[t.category] || t.category;
+            const prioName = FA.priorities[t.priority] || t.priority;
+            const remText = t.reminderAt ? ` (یادآور: ${formatFaDate(t.reminderAt)})` : '';
+            return `✓ **${esc(t.title)}** [${catName} - ${prioName}]${remText}`;
+          }).join('\n');
+
+          if (cleanText) {
+            cleanText = `${cleanText}\n\n${addedList}`;
+          } else {
+            cleanText = `کار جدید با موفقیت اضافه شد:\n${addedList}`;
+          }
+        }
+
+        aiChatHistory.push({ role: 'assistant', text: cleanText });
         renderAiMessages();
       }
     } catch (e) {
@@ -1984,17 +2007,6 @@
     aiSettingsBtn.addEventListener('click', openAiConfigModal);
   }
 
-  if (aiModelSelect) {
-    aiModelSelect.addEventListener('change', () => {
-      if (aiCustomModelBox) {
-        aiCustomModelBox.classList.toggle('hidden', aiModelSelect.value !== 'custom');
-        if (aiModelSelect.value === 'custom' && aiCustomModelInput) {
-          aiCustomModelInput.focus();
-        }
-      }
-    });
-  }
-
   if (aiConfigSaveBtn) {
     aiConfigSaveBtn.addEventListener('click', handleSaveAiConfig);
   }
@@ -2008,10 +2020,6 @@
       const type = aiApiKeyInput.type === 'password' ? 'text' : 'password';
       aiApiKeyInput.type = type;
     });
-  }
-
-  if (aiFetchModelsBtn) {
-    aiFetchModelsBtn.addEventListener('click', fetchLiveGeminiModels);
   }
 
   if (aiSummarizeBtn) {
