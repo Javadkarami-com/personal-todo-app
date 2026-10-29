@@ -1329,11 +1329,15 @@
      ========================================================================== */
   function getAiConfig() {
     const rawKey = localStorage.getItem(SK_GEMINI_KEY) || '';
-    const rawModel = localStorage.getItem(SK_GEMINI_MODEL) || 'gemini-2.5-flash';
+    let rawModel = localStorage.getItem(SK_GEMINI_MODEL) || 'gemini-3.8-flash';
+    const validModels = ['gemini-3.8-flash', 'gemini-3.1-pro', 'gemini-4-Argon'];
+    if (!validModels.includes(rawModel)) {
+      rawModel = 'gemini-3.8-flash';
+    }
     const rawBase = localStorage.getItem(SK_GEMINI_BASE_URL) || 'https://generativelanguage.googleapis.com';
     return {
       apiKey: rawKey.trim(),
-      model: rawModel.trim() || 'gemini-2.5-flash',
+      model: rawModel,
       baseUrl: rawBase.trim().replace(/\/+$/, '') || 'https://generativelanguage.googleapis.com'
     };
   }
@@ -1346,8 +1350,8 @@
   }
 
   function selectAiModelCard(modelId) {
-    const validModels = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-2.5-pro'];
-    const chosen = validModels.includes(modelId) ? modelId : 'gemini-2.5-flash';
+    const validModels = ['gemini-3.8-flash', 'gemini-3.1-pro', 'gemini-4-Argon'];
+    const chosen = validModels.includes(modelId) ? modelId : 'gemini-3.8-flash';
     if (aiModelSelect) aiModelSelect.value = chosen;
 
     const cards = qsa('.ai-model-card');
@@ -1412,7 +1416,7 @@
 
   function handleSaveAiConfig() {
     const rawKey = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
-    const selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
+    const selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-3.8-flash';
     const rawBaseUrl = aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '';
 
     if (rawKey) {
@@ -1442,7 +1446,7 @@
       return;
     }
 
-    const model = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
+    const model = aiModelSelect ? aiModelSelect.value : 'gemini-3.8-flash';
     const baseUrl = (aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '') || 'https://generativelanguage.googleapis.com';
     const cleanBase = baseUrl.replace(/\/+$/, '');
 
