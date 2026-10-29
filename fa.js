@@ -4,6 +4,7 @@ const FA = {
   workspace: 'فضای کاری',
   tasks: 'کارها',
   notes: 'یادداشت‌ها',
+  ai: 'هوش مصنوعی',
   today: 'امروز',
 
   // PIN Lock Screen
@@ -13,16 +14,18 @@ const FA = {
   wrongPin: 'رمز اشتباه است',
   unlockedToast: 'با موفقیت باز شد',
 
-  // Categories (Internal IDs remain untouched: 'Armin Department', 'Gold Sassan', 'KhoshKam')
+  // Categories (Internal IDs remain untouched)
   categories: {
     'Armin Department': 'دپارتمان آرمین',
     'Gold Sassan': 'طلا ساسان',
-    'KhoshKam': 'خوشکام'
+    'KhoshKam': 'خوشکام',
+    'Latifi Store': 'لطیفی استور'
   },
   categoryShort: {
     'Armin Department': 'آرمین',
     'Gold Sassan': 'طلا ساسان',
-    'KhoshKam': 'خوشکام'
+    'KhoshKam': 'خوشکام',
+    'Latifi Store': 'لطیفی'
   },
 
   // Priorities
@@ -65,6 +68,16 @@ const FA = {
   undo: 'بازگردانی',
   noDescProvided: 'توضیحاتی ثبت نشده است',
 
+  // Reminder
+  reminderLabel: 'یادآور',
+  reminderPlaceholder: 'تاریخ و ساعت یادآوری',
+  reminderSet: 'یادآوری تنظیم شد',
+  reminderFired: 'وقت انجام رسید!',
+  reminderPermissionDenied: 'اجازه ارسال اعلان داده نشد',
+  reminderPermissionRequest: 'برای دریافت یادآور، اجازه اعلان را بدهید',
+  noReminder: 'بدون یادآور',
+  reminderDate: 'تاریخ یادآوری',
+
   // Notes
   newNote: 'یادداشت جدید',
   editNote: 'ویرایش یادداشت',
@@ -75,6 +88,8 @@ const FA = {
   personalMemo: 'یادداشت شخصی',
   createdDateNote: 'تاریخ ایجاد',
   lastEditedNote: 'آخرین ویرایش',
+  noteCategoryLabel: 'دسته‌بندی یادداشت',
+  noCategoryNote: 'بدون دسته‌بندی',
 
   // Delete Confirmation Modal
   confirmDeleteTitle: 'آیا از حذف مطمئن هستید؟',
@@ -91,6 +106,36 @@ const FA = {
   emptyNotes: 'هنوز یادداشتی ندارید',
   emptyNotesSub: 'ایده‌ها، برنامه‌ها و یادداشت‌های روزمره خود را بنویسید',
   emptyNotesSearch: 'یادداشتی با این عبارت پیدا نشد',
+
+  // Backup
+  backup: 'پشتیبان‌گیری',
+  backupExport: 'خروجی گرفتن',
+  backupImport: 'بارگذاری پشتیبان',
+  backupExportDesc: 'تمام کارها و یادداشت‌ها به صورت فایل ذخیره می‌شود',
+  backupImportDesc: 'فایل پشتیبان را انتخاب و بارگذاری کنید',
+  backupExported: 'پشتیبان با موفقیت ذخیره شد',
+  backupImported: 'پشتیبان با موفقیت بارگذاری شد',
+  backupInvalid: 'فایل پشتیبان نامعتبر است',
+  backupConfirmImport: 'اطلاعات فعلی جایگزین می‌شود. ادامه می‌دهید؟',
+  backupConfirmYes: 'بله، بارگذاری شود',
+  settings: 'تنظیمات',
+
+  // AI Section
+  aiTitle: 'دستیار هوشمند',
+  aiSubtitle: 'خلاصه کارها و یادداشت‌ها',
+  aiApiKeyLabel: 'کلید API جمینای',
+  aiApiKeyPlaceholder: 'کلید API خود را وارد کنید...',
+  aiApiKeySave: 'ذخیره کلید',
+  aiApiKeySaved: 'کلید API ذخیره شد',
+  aiApiKeyRequired: 'لطفاً ابتدا کلید API را وارد کنید',
+  aiSummarize: 'خلاصه کارها',
+  aiAskQuestion: 'سوال بپرسید...',
+  aiSend: 'ارسال',
+  aiThinking: 'در حال فکر کردن...',
+  aiError: 'خطا در دریافت پاسخ',
+  aiNoInternet: 'برای استفاده از هوش مصنوعی به اینترنت نیاز دارید',
+  aiWelcome: 'سلام! من دستیار هوشمند شما هستم. می‌توانم خلاصه کارها و یادداشت‌هایتان را ارائه دهم.',
+  aiClearChat: 'پاک کردن گفتگو',
 
   // Toasts
   toastTaskSaved: 'کار ذخیره شد',

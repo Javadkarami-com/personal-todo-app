@@ -1,73 +1,74 @@
-# My Tasks & Notes PWA — Flowbite & Tailwind Edition
+# کارهای جاواد — نسخه هوشمند و فارسی (PWA)
 
-A personal, offline-capable Progressive Web App built with pure vanilla JavaScript, styled entirely with **Flowbite components** and **Tailwind CSS**.
+یک وب‌اپلیکیشن پیش‌رونده (PWA) کاملاً آفلاین، راست‌چین و فارسی با استایل اختصاصی **Flowbite** و **Tailwind CSS**.
 
 ---
 
-## 🛠️ Rebuilding the CSS
+## 🚀 ویژگی‌های کلیدی
 
-Whenever you edit `index.html`, `app.js`, or `tailwind.config.js`, recompile the static Tailwind CSS bundle with:
+1. **قفل امنیتی با رمز عبور**:
+   - رمز ۴ رقمی استاتیک (`2020`)
+   - ذخیره نشست برای ۲۴ ساعت در `localStorage`
+   - صفحه کلید عددی با انیمیشن لرزش در صورت اشتباه
+
+2. **چهار دسته‌بندی با لوگوهای اختصاصی**:
+   - دپارتمان آرمین (`Armin Department`)
+   - طلا ساسان (`Gold Sassan`)
+   - خوشکام (`KhoshKam`)
+   - لطیفی استور (`Latifi Store`)
+
+3. **یادداشت‌ها با دسته‌بندی و جستجوی آنی**:
+   - دسته‌بندی یادداشت‌ها بر اساس ۴ بخش تجاری یا بدون دسته‌بندی
+   - تب‌های فیلتر اختصاصی و نوار جستجوی زنده
+
+4. **سیستم یادآور و اعلان‌ها (Push Notifications)**:
+   - تنظیم تاریخ و ساعت یادآوری برای کارها
+   - بررسی خودکار و ارسال اعلان بومی مرورگر/سیستم‌عامل
+   - نشانگر ساعت روی کارت‌های کار
+
+5. **دستیار هوشمند (هوش مصنوعی با جمینای)**:
+   - اتصال به API رسمی Gemini (`gemini-2.5-flash` / `gemini-1.5-flash`)
+   - ذخیره دائمی و امن کلید API در دستگاه شما
+   - دکمه اختصاصی «خلاصه» برای تحلیل و اولویت‌بندی تمام کارها و یادداشت‌ها
+   - قابلیت گفتگو و پرسش و پاسخ درباره تسک‌ها
+
+6. **پشتیبان‌گیری و بازیابی کامل (Backup & Restore)**:
+   - خروجی فایل JSON از کل کارها، یادداشت‌ها و تنظیمات
+   - بارگذاری مجدد فایل پشتیبان در هر زمان
+
+---
+
+## 🛠️ بازسازی CSS (در صورت نیاز به تغییرات استایل)
 
 ```bash
-# Production minified build:
+# بیلد نهایی و فشرده:
 npx tailwindcss -i ./src/input.css -o ./dist/output.css --minify
 
-# Or watch mode for rapid development:
+# حالت بررسی تغییرات زنده (Watch mode):
 npx tailwindcss -i ./src/input.css -o ./dist/output.css --watch
 ```
 
-Only the utilities and Flowbite components actually in use are compiled into `dist/output.css` (~43 KB minified), keeping the PWA lightweight and fast.
-
 ---
 
-## 📁 Project Architecture
+## 📁 ساختار پروژه
 
 ```
-todo-pwa/
+personal todo app/
 ├── dist/
-│   └── output.css           # Compiled Tailwind CSS + Flowbite utilities
+│   └── output.css           # استایل کامپایل‌شده تیل‌ویند + فلو‌بایت
 ├── src/
-│   └── input.css            # Base Tailwind directives + local @font-face rules
+│   └── input.css            # استایل‌های پایه و فونت‌ها
 ├── assets/
-│   ├── armin.png            # Armin Department logo
-│   ├── sasan.webp           # Gold Sassan Jewelry logo
-│   └── favicon.png          # KhoshKam brand logo
-├── fonts/                   # Bundled local offline fonts
-│   ├── Vazirmatn-*.woff2    # Vazirmatn font (Arabic/Persian & Latin)
-│   └── Nunito-*.woff2       # Nunito fallback
-├── icons/                   # PWA icons (192x192, 512x512, maskable)
-├── flowbite.min.js          # Offline Flowbite interactive JavaScript
-├── index.html               # Main application shell with Flowbite markup
-├── app.js                   # Application state, localStorage, and handlers
-├── tailwind.config.js       # Custom theme colors (crimson, ivory, gold), fonts
-├── manifest.json            # PWA standalone configuration
-└── service-worker.js        # Offline cache manifest (v4)
+│   ├── armin.png            # لوگو دپارتمان آرمین
+│   ├── sasan.webp           # لوگو طلا ساسان
+│   ├── favicon.png          # لوگو خوشکام
+│   └── latifi.png           # لوگو لطیفی استور
+├── fonts/                   # فونت‌های محلی آفلاین وزیرمتن و نونیتو
+├── icons/                   # آیکون‌های PWA
+├── flowbite.min.js          # ماژول فلو‌بایت محلی
+├── fa.js                    # دیکشنری و توابع تقویم شمسی
+├── app.js                   # منطق اپلیکیشن، یادآورها، هوش مصنوعی و پشتیبان
+├── index.html               # اسکلت اصلی برنامه
+├── manifest.json            # مانیفست PWA
+└── service-worker.js        # ورکر آفلاین و اعلان‌ها (v6)
 ```
-
----
-
-## 🎨 Theme & Palette
-
-- **Primary Red**: Deep Crimson (`#A4161A` / `primary-600`, with `#C1121F` on active/hover, `#FBEAEA` soft background)
-- **Background**: Warm Ivory (`#FBF8F5` / `bg-ivory`)
-- **Card Background**: Pure White (`#FFFFFF` / `bg-white`)
-- **Text**: Rich Charcoal (`#1F2022` / `text-charcoal`) & Warm Gray (`#7A7471` / `text-muted`)
-- **Gold Accent**: `#C9A227` (`border-gold/50`)
-- **Border**: `#EDE6E0` (`border-borderwarm`)
-
----
-
-## 🚀 How to Publish & Update on Your Phone
-
-### Deploy:
-- **Netlify**: Drag & drop the `todo-pwa` directory into your site's **Deploys** tab at [app.netlify.com](https://app.netlify.com).
-- **GitHub Pages**:
-  ```bash
-  git add .
-  git commit -m "Rewrite UI with Flowbite and Tailwind CSS"
-  git push origin main
-  ```
-
-### Refresh on Mobile:
-1. **iPhone**: Open the app, force close it from the iOS App Switcher (swipe up), and reopen it.
-2. **Android**: Open the app, swipe down to reload (or tap **⋮ $\rightarrow$ Reload**), and reopen.

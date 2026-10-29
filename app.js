@@ -5,30 +5,37 @@
      STORAGE KEYS & CONSTANTS
      Internal keys and category/priority IDs remain identical to protect data.
      ========================================================================== */
-  const CORRECT_PIN = '2020';
-  const PIN_EXPIRY  = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-  const SK_TASKS    = 'todo_tasks';
-  const SK_NOTES    = 'todo_notes';
-  const SK_PIN_TS   = 'todo_pin_ts';
+  const CORRECT_PIN   = '2020';
+  const PIN_EXPIRY    = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  const SK_TASKS      = 'todo_tasks';
+  const SK_NOTES      = 'todo_notes';
+  const SK_PIN_TS     = 'todo_pin_ts';
+  const SK_GEMINI_KEY = 'todo_gemini_key';
+  const SK_AI_CHAT    = 'todo_ai_chat';
 
   /* ==========================================================================
      APP STATE
      ========================================================================== */
-  let activeTab           = 'tasks';      // 'tasks' | 'notes'
-  let activeCategory      = 'all';        // 'all' | 'Armin Department' | 'Gold Sassan' | 'KhoshKam' | 'finished'
-  let activePriority      = 'all';        // 'all' | 'urgent' | 'normal'
-  let activeFinishedCat   = 'all';        // 'all' | 'Armin Department' | 'Gold Sassan' | 'KhoshKam'
+  let activeTab             = 'tasks';      // 'tasks' | 'notes' | 'ai'
+  let activeCategory        = 'all';        // 'all' | 'Armin Department' | 'Gold Sassan' | 'KhoshKam' | 'Latifi Store' | 'finished'
+  let activePriority        = 'all';        // 'all' | 'urgent' | 'normal'
+  let activeFinishedCat     = 'all';        // 'all' | 'Armin Department' | 'Gold Sassan' | 'KhoshKam' | 'Latifi Store'
+  let activeNoteCategory    = 'all';        // 'all' | 'Armin Department' | 'Gold Sassan' | 'KhoshKam' | 'Latifi Store' | 'none'
 
-  let pinInput            = '';
-  let openTaskId          = null;
-  let openNoteId          = null;
+  let pinInput              = '';
+  let openTaskId            = null;
+  let openNoteId            = null;
 
-  let selectedAddCategory = '';
-  let selectedAddPriority = 'normal';
+  let selectedAddCategory   = '';
+  let selectedAddPriority   = 'normal';
+  let selectedNoteCategory  = '';
 
-  let notesSearchQuery    = '';
-  let pendingDeleteType   = null;         // 'task' | 'note'
-  let pendingDeleteId     = null;
+  let notesSearchQuery      = '';
+  let pendingDeleteType     = null;         // 'task' | 'note'
+  let pendingDeleteId       = null;
+
+  let aiChatHistory         = [];
+  let isAiResponding        = false;
 
   // Flowbite Modal instances
   let flowbiteModals = {};
@@ -40,74 +47,95 @@
   const qsa = (s, p) => (p || document).querySelectorAll(s);
 
   // Lock Screen
-  const lockScreen       = qs('#lock-screen');
-  const pinDotsEl        = qs('#pin-dots');
-  const pinErrorEl       = qs('#pin-error');
-  const appShell         = qs('#app');
-  const pageTitleEl      = qs('#page-title');
-  const currentDateEl    = qs('#current-date');
+  const lockScreen          = qs('#lock-screen');
+  const pinDotsEl           = qs('#pin-dots');
+  const pinErrorEl          = qs('#pin-error');
+  const appShell            = qs('#app');
+  const pageTitleEl         = qs('#page-title');
+  const currentDateEl       = qs('#current-date');
+  const settingsBtn         = qs('#settings-btn');
 
   // Views & Bottom Nav
-  const viewTasks        = qs('#view-tasks');
-  const viewNotes        = qs('#view-notes');
-  const bottomNavItems   = qsa('.nav-item');
+  const viewTasks           = qs('#view-tasks');
+  const viewNotes           = qs('#view-notes');
+  const viewAi              = qs('#view-ai');
+  const bottomNavItems      = qsa('.nav-item');
 
-  // Filter Strips
-  const categoryFilters  = qsa('#category-filters .filter-pill');
+  // Filter Strips (Tasks)
+  const categoryFilters     = qsa('#category-filters .filter-pill');
   const activePriorityPills = qs('#active-priority-pills');
-  const priorityBtns     = qsa('#active-priority-pills .sub-pill');
-  const finishedSubPills = qs('#finished-sub-pills');
-  const finishedSubBtns  = qsa('#finished-sub-pills .sub-pill');
-  const finishedCountEl  = qs('#finished-count');
+  const priorityBtns        = qsa('#active-priority-pills .sub-pill');
+  const finishedSubPills    = qs('#finished-sub-pills');
+  const finishedSubBtns     = qsa('#finished-sub-pills .sub-pill');
+  const finishedCountEl     = qs('#finished-count');
 
   // Task List & Empty
-  const taskListEl       = qs('#task-list');
-  const taskEmptyBox     = qs('#task-empty-state');
-  const taskEmptyIcon    = qs('#task-empty-icon');
-  const taskEmptyTitle   = qs('#task-empty-title');
-  const taskEmptySub     = qs('#task-empty-sub');
-  const taskFab          = qs('#task-fab');
+  const taskListEl          = qs('#task-list');
+  const taskEmptyBox        = qs('#task-empty-state');
+  const taskEmptyIcon       = qs('#task-empty-icon');
+  const taskEmptyTitle      = qs('#task-empty-title');
+  const taskEmptySub        = qs('#task-empty-sub');
+  const taskFab             = qs('#task-fab');
 
   // Notes Elements
-  const notesListEl      = qs('#notes-list');
-  const notesSearchInput = qs('#notes-search-input');
-  const notesSearchClear = qs('#notes-search-clear');
-  const notesEmptyBox    = qs('#notes-empty-state');
-  const notesEmptyTitle  = qs('#notes-empty-title');
-  const notesEmptySub    = qs('#notes-empty-sub');
-  const notesFab         = qs('#notes-fab');
+  const notesListEl         = qs('#notes-list');
+  const notesSearchInput    = qs('#notes-search-input');
+  const notesSearchClear    = qs('#notes-search-clear');
+  const notesCategoryFilters= qsa('#notes-category-filters .notes-filter-pill');
+  const notesEmptyBox       = qs('#notes-empty-state');
+  const notesEmptyTitle     = qs('#notes-empty-title');
+  const notesEmptySub       = qs('#notes-empty-sub');
+  const notesFab            = qs('#notes-fab');
 
   // Add Task Modal
-  const addTaskModalEl   = qs('#add-task-modal');
-  const addCatChoices    = qsa('.cat-choice', qs('#add-cat-selector'));
-  const addPriorityBtns  = qsa('#add-priority-group .priority-btn');
-  const addTaskTitle     = qs('#add-task-title');
-  const addTaskDesc      = qs('#add-task-desc');
-  const addTaskSaveBtn   = qs('#add-task-save-btn');
+  const addTaskModalEl      = qs('#add-task-modal');
+  const addCatChoices       = qsa('.cat-choice', qs('#add-cat-selector'));
+  const addPriorityBtns     = qsa('#add-priority-group .priority-btn');
+  const addTaskTitle        = qs('#add-task-title');
+  const addTaskDesc         = qs('#add-task-desc');
+  const addTaskReminder     = qs('#add-task-reminder');
+  const addTaskSaveBtn      = qs('#add-task-save-btn');
 
   // Task Details Modal
-  const detailTaskModalEl = qs('#detail-task-modal');
-  const taskDetailHead   = qs('#task-detail-title');
-  const taskDetailSub    = qs('#task-detail-subtitle');
-  const taskDetailBody   = qs('#task-detail-body');
-  const taskDetailFooter = qs('#task-detail-footer');
+  const detailTaskModalEl   = qs('#detail-task-modal');
+  const taskDetailHead      = qs('#task-detail-title');
+  const taskDetailSub       = qs('#task-detail-subtitle');
+  const taskDetailBody      = qs('#task-detail-body');
+  const taskDetailFooter    = qs('#task-detail-footer');
 
   // Note Modals
-  const noteModalEl      = qs('#note-modal');
-  const noteModalTitle   = qs('#note-modal-heading');
-  const noteTitleInput   = qs('#note-title-input');
-  const noteContentInput = qs('#note-content-input');
-  const noteSaveBtn      = qs('#note-save-btn');
+  const noteModalEl         = qs('#note-modal');
+  const noteModalTitle      = qs('#note-modal-heading');
+  const noteTitleInput      = qs('#note-title-input');
+  const noteContentInput    = qs('#note-content-input');
+  const noteCatChoices      = qsa('.note-cat-pill', qs('#note-cat-selector'));
+  const noteSaveBtn         = qs('#note-save-btn');
 
-  const noteDetailModalEl= qs('#note-detail-modal');
-  const noteDetailSub    = qs('#note-detail-sub');
-  const noteDetailBody   = qs('#note-detail-body');
-  const noteDetailFooter = qs('#note-detail-footer');
+  const noteDetailModalEl   = qs('#note-detail-modal');
+  const noteDetailSub       = qs('#note-detail-sub');
+  const noteDetailBody      = qs('#note-detail-body');
+  const noteDetailFooter    = qs('#note-detail-footer');
 
   // Confirm Modal
-  const confirmModalEl   = qs('#confirm-modal');
-  const confirmTitle     = qs('#confirm-title');
-  const confirmDelBtn    = qs('#confirm-del-btn');
+  const confirmModalEl      = qs('#confirm-modal');
+  const confirmTitle        = qs('#confirm-title');
+  const confirmDelBtn       = qs('#confirm-del-btn');
+
+  // Settings & Backup Modal
+  const settingsModalEl     = qs('#settings-modal');
+  const backupExportBtn     = qs('#backup-export-btn');
+  const backupImportInput   = qs('#backup-import-input');
+
+  // AI Elements
+  const aiApiKeyInput       = qs('#ai-api-key-input');
+  const aiApiToggleVis      = qs('#ai-api-toggle-vis');
+  const aiApiSaveBtn        = qs('#ai-api-save-btn');
+  const aiApiStatus         = qs('#ai-api-status');
+  const aiChatArea          = qs('#ai-chat-area');
+  const aiChatInput         = qs('#ai-chat-input');
+  const aiSendBtn           = qs('#ai-send-btn');
+  const aiSummarizeBtn      = qs('#ai-summarize-btn');
+  const aiClearBtn          = qs('#ai-clear-btn');
 
   /* ==========================================================================
      FLOWBITE TOAST UTILITY (RTL)
@@ -165,25 +193,26 @@
     };
 
     closeBtn.addEventListener('click', dismiss);
-    setTimeout(dismiss, 2800);
+    setTimeout(dismiss, 3200);
   }
 
   /* ==========================================================================
      FLOWBITE MODAL CONTROLLER
      ========================================================================== */
   function initFlowbiteModals() {
-    if (typeof Flowbite !== 'undefined' && Flowbite.Modal) {
-      const modalOptions = {
-        backdrop: 'static',
-        backdropClasses: 'bg-charcoal/50 fixed inset-0 z-40 backdrop-blur-sm',
-        closable: true
-      };
+    const modalOptions = {
+      backdrop: 'static',
+      backdropClasses: 'bg-charcoal/50 fixed inset-0 z-40 backdrop-blur-sm',
+      closable: true
+    };
 
-      flowbiteModals.addTask = new Flowbite.Modal(addTaskModalEl, modalOptions);
+    if (typeof Flowbite !== 'undefined' && Flowbite.Modal) {
+      flowbiteModals.addTask    = new Flowbite.Modal(addTaskModalEl, modalOptions);
       flowbiteModals.taskDetail = new Flowbite.Modal(detailTaskModalEl, modalOptions);
-      flowbiteModals.noteModal = new Flowbite.Modal(noteModalEl, modalOptions);
+      flowbiteModals.noteModal  = new Flowbite.Modal(noteModalEl, modalOptions);
       flowbiteModals.noteDetail = new Flowbite.Modal(noteDetailModalEl, modalOptions);
-      flowbiteModals.confirm = new Flowbite.Modal(confirmModalEl, modalOptions);
+      flowbiteModals.confirm    = new Flowbite.Modal(confirmModalEl, modalOptions);
+      flowbiteModals.settings   = new Flowbite.Modal(settingsModalEl, modalOptions);
     } else {
       const createFallbackModal = (el) => ({
         show: () => {
@@ -196,11 +225,12 @@
         }
       });
 
-      flowbiteModals.addTask = createFallbackModal(addTaskModalEl);
+      flowbiteModals.addTask    = createFallbackModal(addTaskModalEl);
       flowbiteModals.taskDetail = createFallbackModal(detailTaskModalEl);
-      flowbiteModals.noteModal = createFallbackModal(noteModalEl);
+      flowbiteModals.noteModal  = createFallbackModal(noteModalEl);
       flowbiteModals.noteDetail = createFallbackModal(noteDetailModalEl);
-      flowbiteModals.confirm = createFallbackModal(confirmModalEl);
+      flowbiteModals.confirm    = createFallbackModal(confirmModalEl);
+      flowbiteModals.settings   = createFallbackModal(settingsModalEl);
     }
 
     qsa('[data-modal-hide]').forEach(btn => {
@@ -267,14 +297,25 @@
           <span>${label}</span>
         </span>`;
     }
-    // KhoshKam
-    return `
-      <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white border border-borderwarm text-[#1A5FA8] flex-shrink-0">
-        <span class="w-3.5 h-3.5 rounded bg-white p-0.5 flex items-center justify-center">
-          <img src="assets/favicon.png" alt="${label}" class="w-full h-full object-contain" />
-        </span>
-        <span>${label}</span>
-      </span>`;
+    if (cat === 'KhoshKam') {
+      return `
+        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white border border-borderwarm text-[#1A5FA8] flex-shrink-0">
+          <span class="w-3.5 h-3.5 rounded bg-white p-0.5 flex items-center justify-center">
+            <img src="assets/favicon.png" alt="${label}" class="w-full h-full object-contain" />
+          </span>
+          <span>${label}</span>
+        </span>`;
+    }
+    if (cat === 'Latifi Store') {
+      return `
+        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white border border-orange-300 text-[#C05621] flex-shrink-0">
+          <span class="w-3.5 h-3.5 rounded bg-white p-0.5 flex items-center justify-center">
+            <img src="assets/latifi.png" alt="${label}" class="w-full h-full object-contain" />
+          </span>
+          <span>${label}</span>
+        </span>`;
+    }
+    return '';
   }
 
   function renderPriorityBadge(priority) {
@@ -346,6 +387,71 @@
   }
 
   /* ==========================================================================
+     REMINDER & PUSH NOTIFICATION SYSTEM
+     ========================================================================== */
+  function requestNotificationPermission() {
+    if (!('Notification' in window)) return Promise.resolve(false);
+    if (Notification.permission === 'granted') return Promise.resolve(true);
+    if (Notification.permission !== 'denied') {
+      return Notification.requestPermission().then(permission => permission === 'granted');
+    }
+    return Promise.resolve(false);
+  }
+
+  function triggerNotification(task) {
+    const title = task.title;
+    const body = task.description ? task.description.slice(0, 80) : FA.reminderFired;
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, {
+              body: body,
+              icon: 'icons/icon-192x192.png',
+              badge: 'icons/icon-192x192.png',
+              tag: 'todo-reminder-' + task.id,
+              renotify: true,
+              lang: 'fa',
+              dir: 'rtl'
+            });
+          }).catch(() => {
+            new Notification(title, { body: body, icon: 'icons/icon-192x192.png', dir: 'rtl', lang: 'fa' });
+          });
+        } else {
+          new Notification(title, { body: body, icon: 'icons/icon-192x192.png', dir: 'rtl', lang: 'fa' });
+        }
+      } catch (e) {
+        console.warn('Notification trigger failed:', e);
+      }
+    }
+
+    showToast(`⏰ یادآوری: ${title}`, 'info');
+  }
+
+  function checkReminders() {
+    const tasks = getTasks();
+    const now = new Date();
+    let changed = false;
+
+    tasks.forEach(t => {
+      if (!t.done && t.reminderAt && !t.reminded) {
+        const reminderTime = new Date(t.reminderAt);
+        if (!isNaN(reminderTime.getTime()) && reminderTime <= now) {
+          t.reminded = true;
+          changed = true;
+          triggerNotification(t);
+        }
+      }
+    });
+
+    if (changed) {
+      saveTasks(tasks);
+      renderTasks();
+    }
+  }
+
+  /* ==========================================================================
      PIN LOCK SYSTEM (KEYPAD & 24H MEMORY)
      ========================================================================== */
   function isPinValid() {
@@ -402,7 +508,7 @@
   }
 
   /* ==========================================================================
-     TAB SWITCHING (Tasks vs Notes)
+     TAB SWITCHING (Tasks vs Notes vs AI)
      ========================================================================== */
   function switchTab(tab) {
     activeTab = tab;
@@ -416,12 +522,20 @@
       pageTitleEl.textContent = FA.tasks;
       viewTasks.classList.remove('hidden');
       viewNotes.classList.add('hidden');
+      viewAi.classList.add('hidden');
       renderTasks();
-    } else {
+    } else if (tab === 'notes') {
       pageTitleEl.textContent = FA.notes;
       viewNotes.classList.remove('hidden');
       viewTasks.classList.add('hidden');
+      viewAi.classList.add('hidden');
       renderNotes();
+    } else {
+      pageTitleEl.textContent = FA.ai;
+      viewAi.classList.remove('hidden');
+      viewTasks.classList.add('hidden');
+      viewNotes.classList.add('hidden');
+      initAiSection();
     }
   }
 
@@ -430,8 +544,10 @@
     updateFinishedCount();
     if (activeTab === 'tasks') {
       renderTasks();
-    } else {
+    } else if (activeTab === 'notes') {
       renderNotes();
+    } else {
+      initAiSection();
     }
   }
 
@@ -511,6 +627,10 @@
 
     taskListEl.innerHTML = list.map((t) => {
       const isDone = Boolean(t.done);
+      const hasReminder = Boolean(t.reminderAt);
+      const reminderDate = hasReminder ? new Date(t.reminderAt) : null;
+      const isOverdue = reminderDate && reminderDate < new Date() && !isDone;
+
       return `
         <div class="task-card flex items-center gap-3 p-3.5 mb-3 bg-white border border-borderwarm rounded-2xl shadow-soft hover:shadow-md transition-all cursor-pointer ${isDone ? 'opacity-70 bg-gray-50' : ''}" data-id="${t.id}">
           <!-- Check Touch Target (Start / Right side in RTL) -->
@@ -527,6 +647,13 @@
             <div class="flex items-center gap-2 overflow-hidden flex-nowrap">
               ${renderCategoryBadge(t.category)}
               ${renderPriorityBadge(t.priority || 'normal')}
+              ${hasReminder && !isDone ? `
+                <span class="inline-flex items-center gap-1 text-[11px] ${isOverdue ? 'text-primary-600 font-semibold' : 'text-muted'} truncate flex-shrink-0">
+                  <svg class="w-3 h-3 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                  </svg>
+                  <span>${formatFaDate(t.reminderAt)}</span>
+                </span>` : ''}
               ${isDone && t.completedAt ? `<span class="text-[11px] text-muted truncate">${FA.doneOn} ${formatFaDate(t.completedAt)}</span>` : ''}
             </div>
           </div>
@@ -538,7 +665,7 @@
   /* ==========================================================================
      TASK OPERATIONS
      ========================================================================== */
-  function createTask(title, desc, category, priority) {
+  function createTask(title, desc, category, priority, reminderAt) {
     const tasks = getTasks();
     const now = new Date().toISOString();
     tasks.unshift({
@@ -547,6 +674,8 @@
       description: desc.trim(),
       category: category,
       priority: priority || 'normal',
+      reminderAt: reminderAt || null,
+      reminded: false,
       done: false,
       createdAt: now,
       updatedAt: now,
@@ -555,6 +684,10 @@
     saveTasks(tasks);
     renderTasks();
     showToast(FA.toastTaskSaved, 'success');
+
+    if (reminderAt) {
+      requestNotificationPermission();
+    }
   }
 
   function completeTask(id, cardEl, roundBox) {
@@ -563,7 +696,6 @@
     if (checkSvg) checkSvg.classList.remove('hidden');
 
     setTimeout(() => {
-      // Slide away in RTL: move towards left (-translate-x-8 in RTL or translate-x-8)
       cardEl.classList.add('transition-all', 'duration-300', '-translate-x-8', 'opacity-0');
       setTimeout(() => {
         const tasks = getTasks();
@@ -596,6 +728,12 @@
     const tasks = getTasks();
     const t = tasks.find(x => x.id === id);
     if (!t) return;
+
+    if (updates.reminderAt && updates.reminderAt !== t.reminderAt) {
+      updates.reminded = false;
+      requestNotificationPermission();
+    }
+
     Object.assign(t, updates, { updatedAt: new Date().toISOString() });
     saveTasks(tasks);
     renderTasks();
@@ -617,6 +755,7 @@
     selectedAddPriority = 'normal';
     addTaskTitle.value = '';
     addTaskDesc.value = '';
+    if (addTaskReminder) addTaskReminder.value = '';
     addTaskTitle.classList.remove('border-primary-600', 'ring-2', 'ring-primary-200');
 
     addCatChoices.forEach(c => {
@@ -655,7 +794,9 @@
     }
     if (!valid) return;
 
-    createTask(title, addTaskDesc.value, selectedAddCategory, selectedAddPriority);
+    const reminderValue = addTaskReminder ? addTaskReminder.value : '';
+
+    createTask(title, addTaskDesc.value, selectedAddCategory, selectedAddPriority, reminderValue);
     closeFlowbiteModal('addTask');
   }
 
@@ -695,6 +836,17 @@
           ${task.description ? esc(task.description) : `<span class="text-muted italic">${FA.noDescProvided}</span>`}
         </div>
       </div>
+
+      ${task.reminderAt ? `
+      <div>
+        <span class="block mb-1 text-xs font-semibold text-muted">${FA.reminderLabel}</span>
+        <div class="p-2.5 rounded-xl bg-primary-50 border border-primary-100 flex items-center gap-2 text-xs text-primary-700 font-medium">
+          <svg class="w-4 h-4 text-primary-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+          </svg>
+          <span>${formatFaDate(task.reminderAt)}</span>
+        </div>
+      </div>` : ''}
 
       <div class="grid grid-cols-2 gap-3 text-xs">
         <div class="p-2.5 rounded-xl bg-ivory border border-borderwarm">
@@ -751,7 +903,7 @@
     taskDetailBody.innerHTML = `
       <div>
         <label class="block mb-2 text-xs font-semibold text-muted">${FA.categoryLabel} <span class="text-primary-600">*</span></label>
-        <div class="grid grid-cols-3 gap-2" id="edit-cat-selector">
+        <div class="grid grid-cols-2 gap-2" id="edit-cat-selector">
           <div class="cat-choice flex flex-col items-center justify-center p-3 rounded-2xl border-2 ${task.category === 'Armin Department' ? 'border-primary-600 bg-primary-50/30' : 'border-borderwarm'} bg-white cursor-pointer relative text-center" data-cat="Armin Department" role="button">
             <div class="w-9 h-9 rounded-xl bg-charcoal p-1.5 flex items-center justify-center mb-1.5 flex-shrink-0">
               <img src="assets/armin.png" alt="آرمین" class="w-full h-full object-contain" />
@@ -781,6 +933,16 @@
               <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             </span>
           </div>
+
+          <div class="cat-choice flex flex-col items-center justify-center p-3 rounded-2xl border-2 ${task.category === 'Latifi Store' ? 'border-primary-600 bg-primary-50/30' : 'border-borderwarm'} bg-white cursor-pointer relative text-center" data-cat="Latifi Store" role="button">
+            <div class="w-9 h-9 rounded-xl bg-white border border-orange-300 p-1 flex items-center justify-center mb-1.5 flex-shrink-0">
+              <img src="assets/latifi.png" alt="لطیفی" class="w-full h-full object-contain" />
+            </div>
+            <span class="text-xs font-semibold text-charcoal truncate w-full">لطیفی استور</span>
+            <span class="choice-check absolute top-1.5 end-1.5 w-4 h-4 rounded-full bg-primary-600 text-white ${task.category === 'Latifi Store' ? 'flex' : 'hidden'} items-center justify-center">
+              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -807,6 +969,11 @@
       <div>
         <label for="edit-task-desc" class="block mb-2 text-xs font-semibold text-muted">${FA.descLabel}</label>
         <textarea id="edit-task-desc" rows="3" class="block p-3 w-full text-sm text-charcoal bg-white rounded-xl border border-borderwarm focus:ring-primary-600 focus:border-primary-600 outline-none" maxlength="2000" dir="auto">${esc(task.description)}</textarea>
+      </div>
+
+      <div>
+        <label for="edit-task-reminder" class="block mb-2 text-xs font-semibold text-muted">${FA.reminderLabel}</label>
+        <input type="datetime-local" id="edit-task-reminder" class="bg-white border border-borderwarm text-charcoal text-sm rounded-xl focus:ring-primary-600 focus:border-primary-600 block w-full p-3 outline-none" value="${task.reminderAt || ''}" dir="ltr">
       </div>
     `;
 
@@ -857,11 +1024,13 @@
         qs('#edit-task-title').focus();
         return;
       }
+      const reminderVal = qs('#edit-task-reminder').value;
       updateTask(openTaskId, {
         title: t,
         description: qs('#edit-task-desc').value.trim(),
         category: editCategory,
-        priority: editPriority
+        priority: editPriority,
+        reminderAt: reminderVal || null
       });
       const fresh = getTask(openTaskId);
       if (fresh) {
@@ -872,11 +1041,18 @@
   }
 
   /* ==========================================================================
-     NOTES SECTION
+     NOTES SECTION (WITH CATEGORIES)
      ========================================================================== */
   function renderNotes() {
     const all = getNotes();
     let list = all.slice();
+
+    // Category Filter for Notes
+    if (activeNoteCategory === 'none') {
+      list = list.filter(n => !n.category);
+    } else if (activeNoteCategory !== 'all') {
+      list = list.filter(n => n.category === activeNoteCategory);
+    }
 
     list.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
 
@@ -903,7 +1079,10 @@
 
     notesListEl.innerHTML = list.map((n) => `
       <div class="note-card p-4 mb-3 bg-white border border-borderwarm rounded-2xl shadow-soft hover:shadow-md transition-all cursor-pointer text-start" data-id="${n.id}">
-        <h4 class="text-sm font-bold text-charcoal truncate mb-1.5" dir="auto">${esc(n.title)}</h4>
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <h4 class="text-sm font-bold text-charcoal truncate flex-1" dir="auto">${esc(n.title)}</h4>
+          ${n.category ? renderCategoryBadge(n.category) : ''}
+        </div>
         <p class="text-xs text-muted line-clamp-2 mb-2 leading-relaxed" dir="auto">${esc(n.content || '')}</p>
         <span class="text-[11px] text-muted block">${formatFaDate(n.updatedAt || n.createdAt)}</span>
       </div>
@@ -912,22 +1091,44 @@
 
   function openAddNoteModal() {
     openNoteId = null;
+    selectedNoteCategory = '';
     noteModalTitle.textContent = FA.newNote;
     noteTitleInput.value = '';
     noteContentInput.value = '';
     noteTitleInput.classList.remove('border-primary-600', 'ring-2', 'ring-primary-200');
     noteContentInput.classList.remove('border-primary-600', 'ring-2', 'ring-primary-200');
+
+    noteCatChoices.forEach(c => {
+      const isNone = c.dataset.notecat === '';
+      c.classList.toggle('bg-primary-600', isNone);
+      c.classList.toggle('text-white', isNone);
+      c.classList.toggle('border-primary-600', isNone);
+      c.classList.toggle('bg-ivory', !isNone);
+      c.classList.toggle('text-muted', !isNone);
+    });
+
     openFlowbiteModal('noteModal');
     setTimeout(() => noteTitleInput.focus(), 250);
   }
 
   function openEditNoteModal(note) {
     openNoteId = note.id;
+    selectedNoteCategory = note.category || '';
     noteModalTitle.textContent = FA.editNote;
     noteTitleInput.value = note.title;
     noteContentInput.value = note.content;
     noteTitleInput.classList.remove('border-primary-600', 'ring-2', 'ring-primary-200');
     noteContentInput.classList.remove('border-primary-600', 'ring-2', 'ring-primary-200');
+
+    noteCatChoices.forEach(c => {
+      const match = c.dataset.notecat === (note.category || '');
+      c.classList.toggle('bg-primary-600', match);
+      c.classList.toggle('text-white', match);
+      c.classList.toggle('border-primary-600', match);
+      c.classList.toggle('bg-ivory', !match);
+      c.classList.toggle('text-muted', !match);
+    });
+
     openFlowbiteModal('noteModal');
     setTimeout(() => noteTitleInput.focus(), 250);
   }
@@ -958,6 +1159,7 @@
       if (n) {
         n.title = title;
         n.content = content;
+        n.category = selectedNoteCategory || null;
         n.updatedAt = now;
         saveNotes(notes);
       }
@@ -970,6 +1172,7 @@
         id: uid(),
         title: title,
         content: content,
+        category: selectedNoteCategory || null,
         createdAt: now,
         updatedAt: now
       });
@@ -993,8 +1196,12 @@
     noteDetailSub.textContent = `${FA.lastEditedNote} ${formatFaDate(note.updatedAt || note.createdAt)}`;
 
     noteDetailBody.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold text-muted">${FA.titleLabel}</span>
+        ${note.category ? renderCategoryBadge(note.category) : `<span class="text-xs text-muted font-medium">${FA.noCategoryNote}</span>`}
+      </div>
+
       <div>
-        <span class="block mb-1 text-xs font-semibold text-muted">${FA.titleLabel}</span>
         <h4 class="text-lg font-bold text-charcoal" dir="auto">${esc(note.title)}</h4>
       </div>
 
@@ -1040,6 +1247,294 @@
   }
 
   /* ==========================================================================
+     BACKUP & RESTORE SYSTEM
+     ========================================================================== */
+  function exportBackup() {
+    const data = {
+      app: 'کارهای جاواد',
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      tasks: getTasks(),
+      notes: getNotes(),
+      geminiApiKey: localStorage.getItem(SK_GEMINI_KEY) || ''
+    };
+
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const filename = `javad-todo-backup-${dateStr}.json`;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast(FA.backupExported, 'success');
+  }
+
+  function handleImportBackup(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (!data || (!Array.isArray(data.tasks) && !Array.isArray(data.notes))) {
+          showToast(FA.backupInvalid, 'error');
+          return;
+        }
+
+        if (Array.isArray(data.tasks)) {
+          saveTasks(data.tasks);
+        }
+        if (Array.isArray(data.notes)) {
+          saveNotes(data.notes);
+        }
+        if (data.geminiApiKey) {
+          localStorage.setItem(SK_GEMINI_KEY, data.geminiApiKey);
+        }
+
+        renderCurrentView();
+        closeFlowbiteModal('settings');
+        showToast(FA.backupImported, 'success');
+      } catch (err) {
+        showToast(FA.backupInvalid, 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  /* ==========================================================================
+     AI SECTION (GEMINI API INTEGRATION)
+     ========================================================================== */
+  function initAiSection() {
+    const savedKey = localStorage.getItem(SK_GEMINI_KEY) || '';
+    if (aiApiKeyInput) {
+      aiApiKeyInput.value = savedKey;
+    }
+    if (aiApiStatus) {
+      if (savedKey) {
+        aiApiStatus.textContent = 'کلید API ذخیره شده است ✓';
+        aiApiStatus.classList.remove('hidden', 'text-primary-600');
+        aiApiStatus.classList.add('text-green-600');
+      } else {
+        aiApiStatus.textContent = FA.aiApiKeyRequired;
+        aiApiStatus.classList.remove('hidden', 'text-green-600');
+        aiApiStatus.classList.add('text-primary-600');
+      }
+    }
+
+    if (aiChatHistory.length === 0) {
+      renderAiWelcome();
+    } else {
+      renderAiMessages();
+    }
+  }
+
+  function renderAiWelcome() {
+    aiChatArea.innerHTML = `
+      <div class="flex items-start gap-2.5 max-w-[85%]">
+        <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold">AI</div>
+        <div class="p-3.5 bg-white border border-borderwarm rounded-2xl rounded-tr-none text-xs text-charcoal shadow-soft leading-relaxed">
+          <p class="font-semibold mb-1">سلام جاواد عزیز! 👋</p>
+          <p>${FA.aiWelcome}</p>
+          <p class="mt-2 text-[11px] text-muted">می‌توانید روی دکمه «خلاصه» بزنید تا تحلیلی از کارهایتان دریافت کنید، یا سوالی بپرسید.</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAiMessages() {
+    aiChatArea.innerHTML = aiChatHistory.map(msg => {
+      const isUser = msg.role === 'user';
+      if (isUser) {
+        return `
+          <div class="flex items-start justify-end gap-2.5">
+            <div class="p-3.5 bg-primary-600 text-white rounded-2xl rounded-tl-none text-xs max-w-[85%] shadow-soft leading-relaxed whitespace-pre-wrap" dir="auto">${esc(msg.text)}</div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="flex items-start gap-2.5 max-w-[90%]">
+            <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold">AI</div>
+            <div class="p-3.5 bg-white border border-borderwarm rounded-2xl rounded-tr-none text-xs text-charcoal shadow-soft leading-relaxed whitespace-pre-wrap" dir="auto">${formatAiMarkdown(msg.text)}</div>
+          </div>
+        `;
+      }
+    }).join('');
+
+    aiChatArea.scrollTop = aiChatArea.scrollHeight;
+  }
+
+  function formatAiMarkdown(text) {
+    if (!text) return '';
+    // Format bold **text**
+    let formatted = esc(text);
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    return formatted;
+  }
+
+  function appendAiThinking() {
+    const thinkingEl = document.createElement('div');
+    thinkingEl.id = 'ai-thinking-bubble';
+    thinkingEl.className = 'flex items-start gap-2.5 max-w-[85%]';
+    thinkingEl.innerHTML = `
+      <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold">AI</div>
+      <div class="p-3 bg-white border border-borderwarm rounded-2xl rounded-tr-none text-xs text-muted shadow-soft flex items-center gap-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-primary-600 animate-pulse"></span>
+        <span class="inline-block w-2 h-2 rounded-full bg-primary-600 animate-pulse" style="animation-delay: 0.2s"></span>
+        <span class="inline-block w-2 h-2 rounded-full bg-primary-600 animate-pulse" style="animation-delay: 0.4s"></span>
+        <span>${FA.aiThinking}</span>
+      </div>
+    `;
+    aiChatArea.appendChild(thinkingEl);
+    aiChatArea.scrollTop = aiChatArea.scrollHeight;
+  }
+
+  function removeAiThinking() {
+    const el = qs('#ai-thinking-bubble');
+    if (el) el.remove();
+  }
+
+  function buildAppContextPrompt() {
+    const tasks = getTasks();
+    const notes = getNotes();
+
+    const activeTasks = tasks.filter(t => !t.done);
+    const finishedTasks = tasks.filter(t => t.done);
+
+    let summary = `اطلاعات فعلی برنامه کارهای من:\n\n`;
+
+    summary += `=== کارهای در حال انجام (${toFaDigits(activeTasks.length)}) ===\n`;
+    if (activeTasks.length === 0) {
+      summary += 'هیچ کاری در حال انجام نیست.\n';
+    } else {
+      activeTasks.forEach((t, i) => {
+        const catName = FA.categories[t.category] || t.category;
+        const prioName = FA.priorities[t.priority] || t.priority;
+        summary += `${i + 1}. [${catName}] [اولویت: ${prioName}] ${t.title}`;
+        if (t.description) summary += ` - توضیحات: ${t.description}`;
+        if (t.reminderAt) summary += ` - یادآور: ${t.reminderAt}`;
+        summary += '\n';
+      });
+    }
+
+    summary += `\n=== کارهای انجام‌شده (${toFaDigits(finishedTasks.length)}) ===\n`;
+    if (finishedTasks.length === 0) {
+      summary += 'هنوز کاری تکمیل نشده است.\n';
+    } else {
+      finishedTasks.slice(0, 10).forEach((t, i) => {
+        const catName = FA.categories[t.category] || t.category;
+        summary += `${i + 1}. [${catName}] ${t.title}\n`;
+      });
+    }
+
+    summary += `\n=== یادداشت‌ها (${toFaDigits(notes.length)}) ===\n`;
+    if (notes.length === 0) {
+      summary += 'هیچ یادداشتی وجود ندارد.\n';
+    } else {
+      notes.forEach((n, i) => {
+        const catName = n.category ? (FA.categories[n.category] || n.category) : 'عمومی';
+        summary += `${i + 1}. [${catName}] ${n.title}: ${n.content}\n`;
+      });
+    }
+
+    return summary;
+  }
+
+  async function callGeminiApi(userPrompt) {
+    const apiKey = localStorage.getItem(SK_GEMINI_KEY);
+    if (!apiKey) {
+      showToast(FA.aiApiKeyRequired, 'error');
+      aiApiKeyInput.focus();
+      return null;
+    }
+
+    if (!navigator.onLine) {
+      showToast(FA.aiNoInternet, 'error');
+      return null;
+    }
+
+    const context = buildAppContextPrompt();
+    const fullSystemInstruction = `شما دستیار هوشمند و شخصی «جاواد» در اپلیکیشن مدیریت کارهای او هستید. پاسخ‌های شما باید به زبان فارسی صمیمی، منظم، سازنده و انگیزشی باشد. از بولت‌پوینت‌های مرتب استفاده کنید و دسته‌بندی‌ها (دپارتمان آرمین، طلا ساسان، خوشکام، لطیفی استور) را تفکیک کنید. در صورت نیاز اولویت‌های فوری را برجسته کنید.`;
+
+    const payload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `${fullSystemInstruction}\n\n${context}\n\nدرخواست کاربر:\n${userPrompt}`
+            }
+          ]
+        }
+      ]
+    };
+
+    // Try models in order: gemini-2.5-flash, gemini-1.5-flash
+    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          const resData = await response.json();
+          const candidate = resData.candidates && resData.candidates[0];
+          const text = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text;
+          if (text) return text;
+        }
+      } catch (err) {
+        console.warn(`Gemini API error with model ${model}:`, err);
+      }
+    }
+
+    throw new Error('Gemini API call failed');
+  }
+
+  async function sendAiMessage(promptText) {
+    if (isAiResponding) return;
+    const cleanPrompt = promptText.trim();
+    if (!cleanPrompt) return;
+
+    aiChatHistory.push({ role: 'user', text: cleanPrompt });
+    renderAiMessages();
+    aiChatInput.value = '';
+
+    isAiResponding = true;
+    appendAiThinking();
+
+    try {
+      const responseText = await callGeminiApi(cleanPrompt);
+      removeAiThinking();
+      if (responseText) {
+        aiChatHistory.push({ role: 'assistant', text: responseText });
+        renderAiMessages();
+      }
+    } catch (e) {
+      removeAiThinking();
+      showToast(FA.aiError, 'error');
+      aiChatHistory.push({ role: 'assistant', text: 'متأسفانه در دریافت پاسخ مشکلی پیش آمد. لطفاً اتصال اینترنت یا کلید API خود را بررسی کنید.' });
+      renderAiMessages();
+    } finally {
+      isAiResponding = false;
+    }
+  }
+
+  /* ==========================================================================
      CONFIRM DELETE MODAL
      ========================================================================== */
   function promptDelete(type, id, titleText) {
@@ -1074,7 +1569,6 @@
   window.addEventListener('keydown', (e) => {
     if (lockScreen && !lockScreen.classList.contains('pointer-events-none')) {
       if ((e.key >= '0' && e.key <= '9') || (e.key >= '۰' && e.key <= '۹')) {
-        // Map Persian digit to standard ascii for comparison with 2020
         const map = { '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4', '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9' };
         const digit = map[e.key] || e.key;
         handlePinKey(digit);
@@ -1084,12 +1578,25 @@
     }
   });
 
-  // Bottom Navigation
+  // Settings Modal Open
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => openFlowbiteModal('settings'));
+  }
+
+  // Backup Export & Import
+  if (backupExportBtn) {
+    backupExportBtn.addEventListener('click', exportBackup);
+  }
+  if (backupImportInput) {
+    backupImportInput.addEventListener('change', handleImportBackup);
+  }
+
+  // Bottom Navigation (3 Tabs)
   bottomNavItems.forEach(item => {
     item.addEventListener('click', () => switchTab(item.dataset.tab));
   });
 
-  // Category Filters
+  // Category Filters (Tasks)
   categoryFilters.forEach(btn => {
     btn.addEventListener('click', () => {
       categoryFilters.forEach(b => {
@@ -1103,7 +1610,7 @@
     });
   });
 
-  // Priority Filter Pills
+  // Priority Filter Pills (Tasks)
   priorityBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       priorityBtns.forEach(b => {
@@ -1117,7 +1624,7 @@
     });
   });
 
-  // Finished Sub-Filter Pills
+  // Finished Sub-Filter Pills (Tasks)
   finishedSubBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       finishedSubBtns.forEach(b => {
@@ -1128,6 +1635,20 @@
       btn.classList.remove('bg-white', 'text-muted');
       activeFinishedCat = btn.dataset.fsub;
       renderTasks();
+    });
+  });
+
+  // Notes Category Filters
+  notesCategoryFilters.forEach(btn => {
+    btn.addEventListener('click', () => {
+      notesCategoryFilters.forEach(b => {
+        b.classList.remove('bg-primary-600', 'text-white', 'border-primary-600');
+        b.classList.add('bg-ivory', 'text-muted', 'border-borderwarm');
+      });
+      btn.classList.add('bg-primary-600', 'text-white', 'border-primary-600');
+      btn.classList.remove('bg-ivory', 'text-muted', 'border-borderwarm');
+      activeNoteCategory = btn.dataset.nfilter;
+      renderNotes();
     });
   });
 
@@ -1163,6 +1684,19 @@
 
   addTaskTitle.addEventListener('input', () => addTaskTitle.classList.remove('border-primary-600', 'ring-2', 'ring-primary-200'));
   addTaskSaveBtn.addEventListener('click', handleSaveNewTask);
+
+  // Note Modal Category Selection
+  noteCatChoices.forEach(card => {
+    card.addEventListener('click', () => {
+      noteCatChoices.forEach(c => {
+        c.classList.remove('bg-primary-600', 'text-white', 'border-primary-600');
+        c.classList.add('bg-ivory', 'text-muted', 'border-borderwarm');
+      });
+      card.classList.add('bg-primary-600', 'text-white', 'border-primary-600');
+      card.classList.remove('bg-ivory', 'text-muted', 'border-borderwarm');
+      selectedNoteCategory = card.dataset.notecat;
+    });
+  });
 
   // Task List Click Delegation
   taskListEl.addEventListener('click', (e) => {
@@ -1215,6 +1749,62 @@
   noteContentInput.addEventListener('input', () => noteContentInput.classList.remove('border-primary-600', 'ring-2', 'ring-primary-200'));
   noteSaveBtn.addEventListener('click', handleSaveNote);
 
+  // AI Section Bindings
+  if (aiApiSaveBtn) {
+    aiApiSaveBtn.addEventListener('click', () => {
+      const key = aiApiKeyInput.value.trim();
+      if (!key) {
+        localStorage.removeItem(SK_GEMINI_KEY);
+        aiApiStatus.textContent = FA.aiApiKeyRequired;
+        aiApiStatus.classList.remove('hidden', 'text-green-600');
+        aiApiStatus.classList.add('text-primary-600');
+        showToast('کلید پاک شد', 'info');
+      } else {
+        localStorage.setItem(SK_GEMINI_KEY, key);
+        aiApiStatus.textContent = FA.aiApiKeySaved + ' ✓';
+        aiApiStatus.classList.remove('hidden', 'text-primary-600');
+        aiApiStatus.classList.add('text-green-600');
+        showToast(FA.aiApiKeySaved, 'success');
+      }
+    });
+  }
+
+  if (aiApiToggleVis) {
+    aiApiToggleVis.addEventListener('click', () => {
+      const type = aiApiKeyInput.type === 'password' ? 'text' : 'password';
+      aiApiKeyInput.type = type;
+    });
+  }
+
+  if (aiSummarizeBtn) {
+    aiSummarizeBtn.addEventListener('click', () => {
+      sendAiMessage('لطفاً یک خلاصه جامع، سازمان‌یافته، اولویت‌بندی شده و پیشنهادات عملی برای روز من بر اساس کارها و یادداشت‌هایم ارائه بده.');
+    });
+  }
+
+  if (aiSendBtn) {
+    aiSendBtn.addEventListener('click', () => {
+      sendAiMessage(aiChatInput.value);
+    });
+  }
+
+  if (aiChatInput) {
+    aiChatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendAiMessage(aiChatInput.value);
+      }
+    });
+  }
+
+  if (aiClearBtn) {
+    aiClearBtn.addEventListener('click', () => {
+      aiChatHistory = [];
+      renderAiWelcome();
+      showToast('گفتگو پاک شد', 'info');
+    });
+  }
+
   /* ==========================================================================
      INIT
      ========================================================================== */
@@ -1222,6 +1812,10 @@
     initFlowbiteModals();
     updateHeaderDate();
     updateFinishedCount();
+
+    // Check reminders periodically
+    checkReminders();
+    setInterval(checkReminders, 30000);
 
     const activePill = qs('.filter-pill[data-filter="all"]');
     if (activePill) {
