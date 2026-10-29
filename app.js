@@ -7,11 +7,13 @@
      ========================================================================== */
   const CORRECT_PIN   = '2020';
   const PIN_EXPIRY    = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-  const SK_TASKS      = 'todo_tasks';
-  const SK_NOTES      = 'todo_notes';
-  const SK_PIN_TS     = 'todo_pin_ts';
-  const SK_GEMINI_KEY = 'todo_gemini_key';
-  const SK_AI_CHAT    = 'todo_ai_chat';
+  const SK_TASKS         = 'todo_tasks';
+  const SK_NOTES         = 'todo_notes';
+  const SK_PIN_TS        = 'todo_pin_ts';
+  const SK_GEMINI_KEY    = 'todo_gemini_key';
+  const SK_GEMINI_MODEL  = 'todo_gemini_model';
+  const SK_GEMINI_BASE_URL = 'todo_gemini_base_url';
+  const SK_AI_CHAT       = 'todo_ai_chat';
 
   /* ==========================================================================
      APP STATE
@@ -127,10 +129,18 @@
   const backupImportInput   = qs('#backup-import-input');
 
   // AI Elements
+  const aiSettingsBtn       = qs('#ai-settings-btn');
+  const aiActiveModelBadge  = qs('#ai-active-model-badge');
+  const aiConfigModalEl     = qs('#ai-config-modal');
   const aiApiKeyInput       = qs('#ai-api-key-input');
   const aiApiToggleVis      = qs('#ai-api-toggle-vis');
-  const aiApiSaveBtn        = qs('#ai-api-save-btn');
-  const aiApiStatus         = qs('#ai-api-status');
+  const aiModelSelect       = qs('#ai-model-select');
+  const aiCustomModelBox    = qs('#ai-custom-model-box');
+  const aiCustomModelInput  = qs('#ai-custom-model-input');
+  const aiBaseUrlInput      = qs('#ai-base-url-input');
+  const aiTestBtn           = qs('#ai-test-btn');
+  const aiTestStatus        = qs('#ai-test-status');
+  const aiConfigSaveBtn     = qs('#ai-config-save-btn');
   const aiChatArea          = qs('#ai-chat-area');
   const aiChatInput         = qs('#ai-chat-input');
   const aiSendBtn           = qs('#ai-send-btn');
@@ -213,6 +223,7 @@
       flowbiteModals.noteDetail = new Flowbite.Modal(noteDetailModalEl, modalOptions);
       flowbiteModals.confirm    = new Flowbite.Modal(confirmModalEl, modalOptions);
       flowbiteModals.settings   = new Flowbite.Modal(settingsModalEl, modalOptions);
+      flowbiteModals.aiConfig   = new Flowbite.Modal(aiConfigModalEl, modalOptions);
     } else {
       const createFallbackModal = (el) => ({
         show: () => {
@@ -231,6 +242,7 @@
       flowbiteModals.noteDetail = createFallbackModal(noteDetailModalEl);
       flowbiteModals.confirm    = createFallbackModal(confirmModalEl);
       flowbiteModals.settings   = createFallbackModal(settingsModalEl);
+      flowbiteModals.aiConfig   = createFallbackModal(aiConfigModalEl);
     }
 
     qsa('[data-modal-hide]').forEach(btn => {
@@ -1313,30 +1325,158 @@
   }
 
   /* ==========================================================================
-     AI SECTION (GEMINI API INTEGRATION)
+     AI SECTION (GEMINI API INTEGRATION & CONFIG)
      ========================================================================== */
+  function getAiConfig() {
+    const rawKey = localStorage.getItem(SK_GEMINI_KEY) || '';
+    const rawModel = localStorage.getItem(SK_GEMINI_MODEL) || 'gemini-2.0-flash';
+    const rawBase = localStorage.getItem(SK_GEMINI_BASE_URL) || 'https://generativelanguage.googleapis.com';
+    return {
+      apiKey: rawKey.trim(),
+      model: rawModel.trim() || 'gemini-2.0-flash',
+      baseUrl: rawBase.trim().replace(/\/+$/, '') || 'https://generativelanguage.googleapis.com'
+    };
+  }
+
+  function updateAiBadge() {
+    const config = getAiConfig();
+    if (aiActiveModelBadge) {
+      aiActiveModelBadge.textContent = config.model;
+    }
+  }
+
   function initAiSection() {
-    const savedKey = localStorage.getItem(SK_GEMINI_KEY) || '';
-    if (aiApiKeyInput) {
-      aiApiKeyInput.value = savedKey;
-    }
-    if (aiApiStatus) {
-      if (savedKey) {
-        aiApiStatus.textContent = 'کلید API ذخیره شده است ✓';
-        aiApiStatus.classList.remove('hidden', 'text-primary-600');
-        aiApiStatus.classList.add('text-green-600');
-      } else {
-        aiApiStatus.textContent = FA.aiApiKeyRequired;
-        aiApiStatus.classList.remove('hidden', 'text-green-600');
-        aiApiStatus.classList.add('text-primary-600');
-      }
-    }
+    updateAiBadge();
 
     if (aiChatHistory.length === 0) {
       renderAiWelcome();
     } else {
       renderAiMessages();
     }
+  }
+
+  function openAiConfigModal() {
+    const config = getAiConfig();
+    if (aiApiKeyInput) aiApiKeyInput.value = config.apiKey;
+    if (aiBaseUrlInput) aiBaseUrlInput.value = localStorage.getItem(SK_GEMINI_BASE_URL) || '';
+
+    if (aiTestStatus) {
+      aiTestStatus.className = 'mt-2.5 text-xs leading-relaxed hidden p-2.5 rounded-xl border';
+      aiTestStatus.textContent = '';
+    }
+
+    const standardModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-lite'];
+    if (standardModels.includes(config.model)) {
+      if (aiModelSelect) aiModelSelect.value = config.model;
+      if (aiCustomModelBox) aiCustomModelBox.classList.add('hidden');
+    } else {
+      if (aiModelSelect) aiModelSelect.value = 'custom';
+      if (aiCustomModelBox) aiCustomModelBox.classList.remove('hidden');
+      if (aiCustomModelInput) aiCustomModelInput.value = config.model;
+    }
+
+    openFlowbiteModal('aiConfig');
+    setTimeout(() => {
+      if (aiApiKeyInput && !aiApiKeyInput.value) aiApiKeyInput.focus();
+    }, 250);
+  }
+
+  function handleSaveAiConfig() {
+    const rawKey = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
+    let selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-2.0-flash';
+    if (selectedModel === 'custom' && aiCustomModelInput) {
+      selectedModel = aiCustomModelInput.value.trim() || 'gemini-2.0-flash';
+    }
+    const rawBaseUrl = aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '';
+
+    if (rawKey) {
+      localStorage.setItem(SK_GEMINI_KEY, rawKey);
+    } else {
+      localStorage.removeItem(SK_GEMINI_KEY);
+    }
+
+    localStorage.setItem(SK_GEMINI_MODEL, selectedModel);
+
+    if (rawBaseUrl) {
+      localStorage.setItem(SK_GEMINI_BASE_URL, rawBaseUrl);
+    } else {
+      localStorage.removeItem(SK_GEMINI_BASE_URL);
+    }
+
+    updateAiBadge();
+    closeFlowbiteModal('aiConfig');
+    showToast(FA.aiApiKeySaved, 'success');
+  }
+
+  async function testAiConnection() {
+    const key = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
+    if (!key) {
+      setAiTestStatus('لطفاً ابتدا کلید API را وارد کنید.', 'error');
+      aiApiKeyInput.focus();
+      return;
+    }
+
+    let model = aiModelSelect ? aiModelSelect.value : 'gemini-2.0-flash';
+    if (model === 'custom' && aiCustomModelInput) {
+      model = aiCustomModelInput.value.trim() || 'gemini-2.0-flash';
+    }
+
+    const baseUrl = (aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '') || 'https://generativelanguage.googleapis.com';
+    const cleanBase = baseUrl.replace(/\/+$/, '');
+
+    setAiTestStatus('در حال بررسی و ارتباط با سرور...', 'pending');
+
+    try {
+      const url = `${cleanBase}/v1beta/models/${model}:generateContent?key=${key}`;
+      const payload = {
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'پاسخ کوتاه بده: سلام' }]
+          }
+        ]
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'تایید شد';
+        setAiTestStatus(`✓ اتصال موفقیت‌آمیز بود! پاسخ از ${model}: «${reply.trim()}»`, 'success');
+      } else {
+        const errJson = await res.json().catch(() => null);
+        const errMessage = errJson?.error?.message || res.statusText || `کد ${res.status}`;
+        if (res.status === 403 || errMessage.toLowerCase().includes('location')) {
+          setAiTestStatus('خطای ۴۰۳ گوگل (تحریم منطقه‌ای): دسترسی از IP اینترنت شما مسدود است. لطفاً وی‌پی‌ان (VPN) خود را روشن کنید یا از یک آدرس پروکسی استفاده فرمایید.', 'error');
+        } else if (res.status === 400 && errMessage.includes('API_KEY')) {
+          setAiTestStatus('خطای ۴۰۰: کلید API نامعتبر است. لطفاً کلید دریافتی از Google AI Studio را مجدداً کپی کنید.', 'error');
+        } else if (res.status === 404) {
+          setAiTestStatus(`خطای ۴۰۴: مدل «${model}» در این آدرس وجود ندارد. لطفاً مدل دیگری (مانند gemini-2.0-flash یا gemini-1.5-flash) را انتخاب کنید.`, 'error');
+        } else {
+          setAiTestStatus(`خطا از سرور گوگل (کد ${res.status}): ${errMessage}`, 'error');
+        }
+      }
+    } catch (err) {
+      setAiTestStatus(`عدم برقراری ارتباط با سرور: در صورت استفاده از اینترنت ایران، فعال بودن وی‌پی‌ان (VPN) ضروری است. (${err.message})`, 'error');
+    }
+  }
+
+  function setAiTestStatus(text, type) {
+    if (!aiTestStatus) return;
+    aiTestStatus.classList.remove('hidden', 'bg-green-50', 'text-green-800', 'border-green-200', 'bg-red-50', 'text-red-800', 'border-red-200', 'bg-gray-50', 'text-gray-800', 'border-borderwarm');
+
+    if (type === 'success') {
+      aiTestStatus.classList.add('bg-green-50', 'text-green-800', 'border-green-200');
+    } else if (type === 'error') {
+      aiTestStatus.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+    } else {
+      aiTestStatus.classList.add('bg-gray-50', 'text-gray-800', 'border-borderwarm');
+    }
+    aiTestStatus.textContent = text;
   }
 
   function renderAiWelcome() {
@@ -1346,7 +1486,7 @@
         <div class="p-3.5 bg-white border border-borderwarm rounded-2xl rounded-tr-none text-xs text-charcoal shadow-soft leading-relaxed">
           <p class="font-semibold mb-1">سلام جاواد عزیز! 👋</p>
           <p>${FA.aiWelcome}</p>
-          <p class="mt-2 text-[11px] text-muted">می‌توانید روی دکمه «خلاصه» بزنید تا تحلیلی از کارهایتان دریافت کنید، یا سوالی بپرسید.</p>
+          <p class="mt-2 text-[11px] text-muted">می‌توانید روی دکمه «خلاصه» بزنید تا تحلیلی جامع از کارهایتان دریافت کنید، یا سوالی بپرسید.</p>
         </div>
       </div>
     `;
@@ -1376,7 +1516,6 @@
 
   function formatAiMarkdown(text) {
     if (!text) return '';
-    // Format bold **text**
     let formatted = esc(text);
     formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
@@ -1452,10 +1591,10 @@
   }
 
   async function callGeminiApi(userPrompt) {
-    const apiKey = localStorage.getItem(SK_GEMINI_KEY);
-    if (!apiKey) {
+    const config = getAiConfig();
+    if (!config.apiKey) {
       showToast(FA.aiApiKeyRequired, 'error');
-      aiApiKeyInput.focus();
+      openAiConfigModal();
       return null;
     }
 
@@ -1480,29 +1619,43 @@
       ]
     };
 
-    // Try models in order: gemini-2.5-flash, gemini-1.5-flash
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
-    for (const model of models) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+    const url = `${config.baseUrl}/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
 
-        if (response.ok) {
-          const resData = await response.json();
-          const candidate = resData.candidates && resData.candidates[0];
-          const text = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text;
-          if (text) return text;
-        }
-      } catch (err) {
-        console.warn(`Gemini API error with model ${model}:`, err);
-      }
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (networkErr) {
+      throw new Error('عدم امکان برقراری ارتباط با سرور گوگل. لطفاً اتصال اینترنت یا روشن بودن فیلترشکن (VPN) را بررسی فرمایید.');
     }
 
-    throw new Error('Gemini API call failed');
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => null);
+      const errMessage = errJson?.error?.message || response.statusText || `کد خطا: ${response.status}`;
+      if (response.status === 403 || errMessage.toLowerCase().includes('location')) {
+        throw new Error('تحریم منطقه‌ای گوگل (خطای ۴۰۳): دسترسی به این سرویس از IP شما مسدود است. لطفاً وی‌پی‌ان (VPN) خود را روشن کنید یا در تنظیمات از پروکسی استفاده کنید.');
+      }
+      if (response.status === 400 && errMessage.includes('API_KEY')) {
+        throw new Error('کلید API وارد شده نامعتبر است (خطای ۴۰۰). لطفاً کلید خود را در دکمه تنظیمات بالای صفحه بررسی کنید.');
+      }
+      if (response.status === 404) {
+        throw new Error(`مدل «${config.model}» یافت نشد (خطای ۴۰۴). لطفاً از دکمه تنظیمات مدل دیگری مانند gemini-2.0-flash یا gemini-1.5-flash را انتخاب فرمایید.`);
+      }
+      throw new Error(`پاسخ ناموفق از گوگل (کد ${response.status}): ${errMessage}`);
+    }
+
+    const resData = await response.json();
+    const candidate = resData.candidates && resData.candidates[0];
+    const text = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text;
+
+    if (!text) {
+      throw new Error('پاسخی از مدل دریافت نشد. ممکن است به دلیل سیاست‌های محتوایی مسدود شده باشد.');
+    }
+
+    return text;
   }
 
   async function sendAiMessage(promptText) {
@@ -1527,7 +1680,10 @@
     } catch (e) {
       removeAiThinking();
       showToast(FA.aiError, 'error');
-      aiChatHistory.push({ role: 'assistant', text: 'متأسفانه در دریافت پاسخ مشکلی پیش آمد. لطفاً اتصال اینترنت یا کلید API خود را بررسی کنید.' });
+      aiChatHistory.push({
+        role: 'assistant',
+        text: `⚠️ **خطا در برقراری ارتباط با جمینای:**\n\n${e.message}\n\n💡 *برای رفع مشکل، روی دکمه «تنظیمات» در بالای صفحه بزنید و اتصال کلید را تست کنید.*`
+      });
       renderAiMessages();
     } finally {
       isAiResponding = false;
@@ -1750,23 +1906,27 @@
   noteSaveBtn.addEventListener('click', handleSaveNote);
 
   // AI Section Bindings
-  if (aiApiSaveBtn) {
-    aiApiSaveBtn.addEventListener('click', () => {
-      const key = aiApiKeyInput.value.trim();
-      if (!key) {
-        localStorage.removeItem(SK_GEMINI_KEY);
-        aiApiStatus.textContent = FA.aiApiKeyRequired;
-        aiApiStatus.classList.remove('hidden', 'text-green-600');
-        aiApiStatus.classList.add('text-primary-600');
-        showToast('کلید پاک شد', 'info');
-      } else {
-        localStorage.setItem(SK_GEMINI_KEY, key);
-        aiApiStatus.textContent = FA.aiApiKeySaved + ' ✓';
-        aiApiStatus.classList.remove('hidden', 'text-primary-600');
-        aiApiStatus.classList.add('text-green-600');
-        showToast(FA.aiApiKeySaved, 'success');
+  if (aiSettingsBtn) {
+    aiSettingsBtn.addEventListener('click', openAiConfigModal);
+  }
+
+  if (aiModelSelect) {
+    aiModelSelect.addEventListener('change', () => {
+      if (aiCustomModelBox) {
+        aiCustomModelBox.classList.toggle('hidden', aiModelSelect.value !== 'custom');
+        if (aiModelSelect.value === 'custom' && aiCustomModelInput) {
+          aiCustomModelInput.focus();
+        }
       }
     });
+  }
+
+  if (aiConfigSaveBtn) {
+    aiConfigSaveBtn.addEventListener('click', handleSaveAiConfig);
+  }
+
+  if (aiTestBtn) {
+    aiTestBtn.addEventListener('click', testAiConnection);
   }
 
   if (aiApiToggleVis) {
