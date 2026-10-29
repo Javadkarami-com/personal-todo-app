@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-pwa-v7-ai-modal';
+const CACHE_NAME = 'todo-pwa-v8-ai-models';
 
 const ASSETS = [
   './',

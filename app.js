@@ -135,6 +135,8 @@
   const aiApiKeyInput       = qs('#ai-api-key-input');
   const aiApiToggleVis      = qs('#ai-api-toggle-vis');
   const aiModelSelect       = qs('#ai-model-select');
+  const aiFetchModelsBtn    = qs('#ai-fetch-models-btn');
+  const aiModelsFetchInfo   = qs('#ai-models-fetch-info');
   const aiCustomModelBox    = qs('#ai-custom-model-box');
   const aiCustomModelInput  = qs('#ai-custom-model-input');
   const aiBaseUrlInput      = qs('#ai-base-url-input');
@@ -1329,11 +1331,11 @@
      ========================================================================== */
   function getAiConfig() {
     const rawKey = localStorage.getItem(SK_GEMINI_KEY) || '';
-    const rawModel = localStorage.getItem(SK_GEMINI_MODEL) || 'gemini-2.0-flash';
+    const rawModel = localStorage.getItem(SK_GEMINI_MODEL) || 'gemini-2.5-flash';
     const rawBase = localStorage.getItem(SK_GEMINI_BASE_URL) || 'https://generativelanguage.googleapis.com';
     return {
       apiKey: rawKey.trim(),
-      model: rawModel.trim() || 'gemini-2.0-flash',
+      model: rawModel.trim() || 'gemini-2.5-flash',
       baseUrl: rawBase.trim().replace(/\/+$/, '') || 'https://generativelanguage.googleapis.com'
     };
   }
@@ -1355,6 +1357,79 @@
     }
   }
 
+  async function fetchLiveGeminiModels() {
+    const key = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
+    if (!key) {
+      showToast('لطفاً ابتدا کلید API را وارد کنید', 'error');
+      aiApiKeyInput.focus();
+      return;
+    }
+
+    const baseUrl = (aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '') || 'https://generativelanguage.googleapis.com';
+    const cleanBase = baseUrl.replace(/\/+$/, '');
+
+    if (aiModelsFetchInfo) {
+      aiModelsFetchInfo.textContent = 'در حال دریافت لیست مدل‌ها از گوگل...';
+      aiModelsFetchInfo.classList.remove('hidden', 'text-red-600', 'text-green-600');
+      aiModelsFetchInfo.classList.add('text-muted');
+    }
+
+    try {
+      const url = `${cleanBase}/v1beta/models?key=${key}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        const errMsg = errJson?.error?.message || res.statusText || `کد ${res.status}`;
+        if (aiModelsFetchInfo) {
+          aiModelsFetchInfo.textContent = `خطا در دریافت لیست مدل‌ها: ${errMsg}`;
+          aiModelsFetchInfo.classList.remove('text-muted');
+          aiModelsFetchInfo.classList.add('text-red-600');
+        }
+        return;
+      }
+
+      const data = await res.json();
+      const models = (data.models || [])
+        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''));
+
+      if (models.length === 0) {
+        if (aiModelsFetchInfo) {
+          aiModelsFetchInfo.textContent = 'هیچ مدلی با قابلیت تولید متن یافت نشد.';
+          aiModelsFetchInfo.classList.add('text-red-600');
+        }
+        return;
+      }
+
+      const currentSelection = aiModelSelect.value;
+      aiModelSelect.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('') +
+        `<option value="custom">سایر / مدل دلخواه (Custom)...</option>`;
+
+      if (models.includes(currentSelection)) {
+        aiModelSelect.value = currentSelection;
+      } else if (models.includes('gemini-2.5-flash')) {
+        aiModelSelect.value = 'gemini-2.5-flash';
+      } else if (models.includes('gemini-2.0-flash')) {
+        aiModelSelect.value = 'gemini-2.0-flash';
+      } else {
+        aiModelSelect.value = models[0];
+      }
+
+      if (aiModelsFetchInfo) {
+        aiModelsFetchInfo.textContent = `تعداد ${toFaDigits(models.length)} مدل فعال با موفقیت دریافت و در لیست قرار گرفت ✓`;
+        aiModelsFetchInfo.classList.remove('text-muted', 'text-red-600');
+        aiModelsFetchInfo.classList.add('text-green-600');
+      }
+      showToast('لیست مدل‌های فعال بروز شد', 'success');
+    } catch (err) {
+      if (aiModelsFetchInfo) {
+        aiModelsFetchInfo.textContent = `عدم دسترسی به سرور: ${err.message}. لطفاً وضعیت اتصال VPN را بررسی کنید.`;
+        aiModelsFetchInfo.classList.remove('text-muted');
+        aiModelsFetchInfo.classList.add('text-red-600');
+      }
+    }
+  }
+
   function openAiConfigModal() {
     const config = getAiConfig();
     if (aiApiKeyInput) aiApiKeyInput.value = config.apiKey;
@@ -1365,7 +1440,7 @@
       aiTestStatus.textContent = '';
     }
 
-    const standardModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-lite'];
+    const standardModels = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'];
     if (standardModels.includes(config.model)) {
       if (aiModelSelect) aiModelSelect.value = config.model;
       if (aiCustomModelBox) aiCustomModelBox.classList.add('hidden');
@@ -1383,9 +1458,9 @@
 
   function handleSaveAiConfig() {
     const rawKey = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
-    let selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-2.0-flash';
+    let selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
     if (selectedModel === 'custom' && aiCustomModelInput) {
-      selectedModel = aiCustomModelInput.value.trim() || 'gemini-2.0-flash';
+      selectedModel = aiCustomModelInput.value.trim() || 'gemini-2.5-flash';
     }
     const rawBaseUrl = aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '';
 
@@ -1416,9 +1491,9 @@
       return;
     }
 
-    let model = aiModelSelect ? aiModelSelect.value : 'gemini-2.0-flash';
+    let model = aiModelSelect ? aiModelSelect.value : 'gemini-2.5-flash';
     if (model === 'custom' && aiCustomModelInput) {
-      model = aiCustomModelInput.value.trim() || 'gemini-2.0-flash';
+      model = aiCustomModelInput.value.trim() || 'gemini-2.5-flash';
     }
 
     const baseUrl = (aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '') || 'https://generativelanguage.googleapis.com';
@@ -1455,7 +1530,7 @@
         } else if (res.status === 400 && errMessage.includes('API_KEY')) {
           setAiTestStatus('خطای ۴۰۰: کلید API نامعتبر است. لطفاً کلید دریافتی از Google AI Studio را مجدداً کپی کنید.', 'error');
         } else if (res.status === 404) {
-          setAiTestStatus(`خطای ۴۰۴: مدل «${model}» در این آدرس وجود ندارد. لطفاً مدل دیگری (مانند gemini-2.0-flash یا gemini-1.5-flash) را انتخاب کنید.`, 'error');
+          setAiTestStatus(`خطای ۴۰۴: مدل «${model}» در این تاریخ یا این سرور فعال نیست. دکمه «دریافت لیست زنده مدل‌ها» را بزنید و یک مدل فعال انتخاب کنید.`, 'error');
         } else {
           setAiTestStatus(`خطا از سرور گوگل (کد ${res.status}): ${errMessage}`, 'error');
         }
@@ -1483,10 +1558,9 @@
     aiChatArea.innerHTML = `
       <div class="flex items-start gap-2.5 max-w-[85%]">
         <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center flex-shrink-0 text-xs font-bold">AI</div>
-        <div class="p-3.5 bg-white border border-borderwarm rounded-2xl rounded-tr-none text-xs text-charcoal shadow-soft leading-relaxed">
-          <p class="font-semibold mb-1">سلام جاواد عزیز! 👋</p>
-          <p>${FA.aiWelcome}</p>
-          <p class="mt-2 text-[11px] text-muted">می‌توانید روی دکمه «خلاصه» بزنید تا تحلیلی جامع از کارهایتان دریافت کنید، یا سوالی بپرسید.</p>
+        <div class="p-3 bg-white border border-borderwarm rounded-2xl rounded-tr-none text-xs text-charcoal shadow-soft leading-relaxed">
+          <p class="font-bold mb-1">دستیار خلاصه کارها و زمان‌بندی‌ها</p>
+          <p class="text-muted">برای دریافت گزارش کوتاه، دکمه «خلاصه» را لمس کنید یا سوال مورد نظر خود درباره کارها را بنویسید.</p>
         </div>
       </div>
     `;
@@ -1546,44 +1620,34 @@
 
   function buildAppContextPrompt() {
     const tasks = getTasks();
-    const notes = getNotes();
-
     const activeTasks = tasks.filter(t => !t.done);
     const finishedTasks = tasks.filter(t => t.done);
 
-    let summary = `اطلاعات فعلی برنامه کارهای من:\n\n`;
+    let summary = `اطلاعات کارها و زمان‌بندی‌های من:\n\n`;
 
-    summary += `=== کارهای در حال انجام (${toFaDigits(activeTasks.length)}) ===\n`;
+    summary += `کارهای فعال (${toFaDigits(activeTasks.length)} مورد):\n`;
     if (activeTasks.length === 0) {
-      summary += 'هیچ کاری در حال انجام نیست.\n';
+      summary += 'هیچ کار فعالی ثبت نشده است.\n';
     } else {
       activeTasks.forEach((t, i) => {
         const catName = FA.categories[t.category] || t.category;
         const prioName = FA.priorities[t.priority] || t.priority;
         summary += `${i + 1}. [${catName}] [اولویت: ${prioName}] ${t.title}`;
-        if (t.description) summary += ` - توضیحات: ${t.description}`;
-        if (t.reminderAt) summary += ` - یادآور: ${t.reminderAt}`;
+        if (t.reminderAt) {
+          summary += ` [یادآور/زمان‌بندی: ${formatFaDate(t.reminderAt)}]`;
+        }
+        if (t.description) {
+          summary += ` - توضیحات: ${t.description}`;
+        }
         summary += '\n';
       });
     }
 
-    summary += `\n=== کارهای انجام‌شده (${toFaDigits(finishedTasks.length)}) ===\n`;
-    if (finishedTasks.length === 0) {
-      summary += 'هنوز کاری تکمیل نشده است.\n';
-    } else {
-      finishedTasks.slice(0, 10).forEach((t, i) => {
+    if (finishedTasks.length > 0) {
+      summary += `\nکارهای تکمیل‌شده اخیر (${toFaDigits(finishedTasks.length)} مورد):\n`;
+      finishedTasks.slice(0, 5).forEach((t, i) => {
         const catName = FA.categories[t.category] || t.category;
         summary += `${i + 1}. [${catName}] ${t.title}\n`;
-      });
-    }
-
-    summary += `\n=== یادداشت‌ها (${toFaDigits(notes.length)}) ===\n`;
-    if (notes.length === 0) {
-      summary += 'هیچ یادداشتی وجود ندارد.\n';
-    } else {
-      notes.forEach((n, i) => {
-        const catName = n.category ? (FA.categories[n.category] || n.category) : 'عمومی';
-        summary += `${i + 1}. [${catName}] ${n.title}: ${n.content}\n`;
       });
     }
 
@@ -1604,19 +1668,29 @@
     }
 
     const context = buildAppContextPrompt();
-    const fullSystemInstruction = `شما دستیار هوشمند و شخصی «جاواد» در اپلیکیشن مدیریت کارهای او هستید. پاسخ‌های شما باید به زبان فارسی صمیمی، منظم، سازنده و انگیزشی باشد. از بولت‌پوینت‌های مرتب استفاده کنید و دسته‌بندی‌ها (دپارتمان آرمین، طلا ساسان، خوشکام، لطیفی استور) را تفکیک کنید. در صورت نیاز اولویت‌های فوری را برجسته کنید.`;
+    const strictSystemInstruction = `دستورالعمل حیاتی و بدون استثنا:
+پاسخ شما باید بسیار کوتاه، فشرده و صرفاً یک خلاصه در چند پاراگراف باشد.
+کاملاً و اکیداً بدون هیچ کلمه اضافی: هرگز سلام، احوالپرسی، تعارف، مقدمه‌چینی، نتیجه‌گیری، عبارات انگیزشی یا جملات پایانی ننویسید.
+مستقیماً از اولین کلمه، فقط و فقط در مورد کارها (tasks)، اولویت‌ها، وضعیت انجام آن‌ها و زمان‌بندی‌ها و یادآورها (schedules) صحبت کنید.`;
 
     const payload = {
+      system_instruction: {
+        parts: [{ text: strictSystemInstruction }]
+      },
       contents: [
         {
           role: 'user',
           parts: [
             {
-              text: `${fullSystemInstruction}\n\n${context}\n\nدرخواست کاربر:\n${userPrompt}`
+              text: `${strictSystemInstruction}\n\n${context}\n\nدرخواست کاربر:\n${userPrompt}`
             }
           ]
         }
-      ]
+      ],
+      generationConfig: {
+        maxOutputTokens: 600,
+        temperature: 0.1
+      }
     };
 
     const url = `${config.baseUrl}/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
@@ -1642,7 +1716,7 @@
         throw new Error('کلید API وارد شده نامعتبر است (خطای ۴۰۰). لطفاً کلید خود را در دکمه تنظیمات بالای صفحه بررسی کنید.');
       }
       if (response.status === 404) {
-        throw new Error(`مدل «${config.model}» یافت نشد (خطای ۴۰۴). لطفاً از دکمه تنظیمات مدل دیگری مانند gemini-2.0-flash یا gemini-1.5-flash را انتخاب فرمایید.`);
+        throw new Error(`مدل «${config.model}» در این تاریخ یا این سرور فعال نیست (خطای ۴۰۴). لطفاً از دکمه تنظیمات بالای صفحه، دکمه «دریافت لیست زنده مدل‌ها» را بزنید و یک مدل فعال دیگر انتخاب فرمایید.`);
       }
       throw new Error(`پاسخ ناموفق از گوگل (کد ${response.status}): ${errMessage}`);
     }
@@ -1936,9 +2010,13 @@
     });
   }
 
+  if (aiFetchModelsBtn) {
+    aiFetchModelsBtn.addEventListener('click', fetchLiveGeminiModels);
+  }
+
   if (aiSummarizeBtn) {
     aiSummarizeBtn.addEventListener('click', () => {
-      sendAiMessage('لطفاً یک خلاصه جامع، سازمان‌یافته، اولویت‌بندی شده و پیشنهادات عملی برای روز من بر اساس کارها و یادداشت‌هایم ارائه بده.');
+      sendAiMessage('یک خلاصه بسیار کوتاه در چند پاراگراف صرفاً درباره کارها و زمان‌بندی‌های من ارائه بده. بدون هیچ کلمه اضافی یا احوالپرسی.');
     });
   }
 
