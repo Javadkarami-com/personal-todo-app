@@ -13,6 +13,7 @@
   const SK_GEMINI_KEY    = 'todo_gemini_key';
   const SK_GEMINI_MODEL  = 'todo_gemini_model';
   const SK_GEMINI_BASE_URL = 'todo_gemini_base_url';
+  const SK_CACHED_MODELS = 'todo_cached_models';
   const SK_AI_CHAT       = 'todo_ai_chat';
 
   /* ==========================================================================
@@ -135,6 +136,8 @@
   const aiApiKeyInput       = qs('#ai-api-key-input');
   const aiApiToggleVis      = qs('#ai-api-toggle-vis');
   const aiModelSelect       = qs('#ai-model-select');
+  const aiFetchModelsBtn    = qs('#ai-fetch-models-btn');
+  const aiModelsFetchInfo   = qs('#ai-models-fetch-info');
   const aiBaseUrlInput      = qs('#ai-base-url-input');
   const aiTestBtn           = qs('#ai-test-btn');
   const aiTestStatus        = qs('#ai-test-status');
@@ -1329,15 +1332,11 @@
      ========================================================================== */
   function getAiConfig() {
     const rawKey = localStorage.getItem(SK_GEMINI_KEY) || '';
-    let rawModel = localStorage.getItem(SK_GEMINI_MODEL) || 'gemini-3.8-flash';
-    const validModels = ['gemini-3.8-flash', 'gemini-3.1-pro', 'gemini-4-Argon'];
-    if (!validModels.includes(rawModel)) {
-      rawModel = 'gemini-3.8-flash';
-    }
+    const rawModel = localStorage.getItem(SK_GEMINI_MODEL) || 'gemini-2.5-flash';
     const rawBase = localStorage.getItem(SK_GEMINI_BASE_URL) || 'https://generativelanguage.googleapis.com';
     return {
       apiKey: rawKey.trim(),
-      model: rawModel,
+      model: rawModel.trim() || 'gemini-2.5-flash',
       baseUrl: rawBase.trim().replace(/\/+$/, '') || 'https://generativelanguage.googleapis.com'
     };
   }
@@ -1349,45 +1348,98 @@
     }
   }
 
-  function selectAiModelCard(modelId) {
-    const validModels = ['gemini-3.8-flash', 'gemini-3.1-pro', 'gemini-4-Argon'];
-    const chosen = validModels.includes(modelId) ? modelId : 'gemini-3.8-flash';
-    if (aiModelSelect) aiModelSelect.value = chosen;
+  function populateModelDropdown(selectedModel) {
+    if (!aiModelSelect) return;
+    let cached = [];
+    try {
+      cached = JSON.parse(localStorage.getItem(SK_CACHED_MODELS) || '[]');
+    } catch (e) {
+      cached = [];
+    }
 
-    const cards = qsa('.ai-model-card');
-    cards.forEach(card => {
-      const isSelected = card.dataset.model === chosen;
-      const radio = card.querySelector('.ai-model-radio');
-      const dot = radio ? radio.querySelector('div') : null;
+    const current = (selectedModel || getAiConfig().model || 'gemini-2.5-flash').trim();
+    let modelList = Array.isArray(cached) && cached.length > 0 ? [...cached] : [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-3.8-flash',
+      'gemini-3.1-pro',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash'
+    ];
 
-      if (isSelected) {
-        card.classList.add('border-primary-600', 'bg-primary-50/40');
-        card.classList.remove('border-borderwarm', 'bg-white');
-        if (radio) {
-          radio.classList.add('border-primary-600');
-          radio.classList.remove('border-gray-300');
+    if (current && !modelList.includes(current)) {
+      modelList.unshift(current);
+    }
+
+    aiModelSelect.innerHTML = modelList.map(m => {
+      const isSel = m === current ? 'selected' : '';
+      return `<option value="${m}" ${isSel}>${m}</option>`;
+    }).join('');
+
+    aiModelSelect.value = current;
+  }
+
+  async function fetchLiveGeminiModels() {
+    const key = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
+    if (!key) {
+      showToast('لطفاً ابتدا کلید API را وارد کنید', 'error');
+      if (aiApiKeyInput) aiApiKeyInput.focus();
+      return;
+    }
+
+    const baseUrl = (aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '') || 'https://generativelanguage.googleapis.com';
+    const cleanBase = baseUrl.replace(/\/+$/, '');
+
+    if (aiModelsFetchInfo) {
+      aiModelsFetchInfo.textContent = 'در حال دریافت جدیدترین مدل‌ها از گوگل...';
+      aiModelsFetchInfo.className = 'text-[11px] text-muted mt-1.5 block animate-pulse';
+    }
+
+    try {
+      const url = `${cleanBase}/v1beta/models?key=${key}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        const errMsg = errJson?.error?.message || res.statusText || `کد ${res.status}`;
+        if (aiModelsFetchInfo) {
+          aiModelsFetchInfo.textContent = `خطا در دریافت لیست مدل‌ها: ${errMsg}`;
+          aiModelsFetchInfo.className = 'text-[11px] text-red-600 mt-1.5 block';
         }
-        if (dot) dot.classList.remove('hidden');
-      } else {
-        card.classList.remove('border-primary-600', 'bg-primary-50/40');
-        card.classList.add('border-borderwarm', 'bg-white');
-        if (radio) {
-          radio.classList.remove('border-primary-600');
-          radio.classList.add('border-gray-300');
-        }
-        if (dot) dot.classList.add('hidden');
+        return;
       }
-    });
+
+      const data = await res.json();
+      const models = (data.models || [])
+        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''));
+
+      if (models.length === 0) {
+        if (aiModelsFetchInfo) {
+          aiModelsFetchInfo.textContent = 'هیچ مدلی با قابلیت گفتگو یا تولید متن یافت نشد.';
+          aiModelsFetchInfo.className = 'text-[11px] text-red-600 mt-1.5 block';
+        }
+        return;
+      }
+
+      localStorage.setItem(SK_CACHED_MODELS, JSON.stringify(models));
+      const currentSelection = aiModelSelect ? aiModelSelect.value : '';
+      populateModelDropdown(models.includes(currentSelection) ? currentSelection : models[0]);
+
+      if (aiModelsFetchInfo) {
+        aiModelsFetchInfo.textContent = `✓ تعداد ${toFaDigits(models.length)} مدل جدید دریافت شد و در لیست قرار گرفت.`;
+        aiModelsFetchInfo.className = 'text-[11px] text-green-700 mt-1.5 block font-medium';
+      }
+      showToast('لیست مدل‌های جدید دریافت شد', 'success');
+    } catch (err) {
+      if (aiModelsFetchInfo) {
+        aiModelsFetchInfo.textContent = `عدم امکان ارتباط با سرور: ${err.message}. لطفاً وضعیت VPN را بررسی فرمایید.`;
+        aiModelsFetchInfo.className = 'text-[11px] text-red-600 mt-1.5 block';
+      }
+    }
   }
 
   function initAiSection() {
     updateAiBadge();
-
-    qsa('.ai-model-card').forEach(card => {
-      card.addEventListener('click', () => {
-        selectAiModelCard(card.dataset.model);
-      });
-    });
 
     if (aiChatHistory.length === 0) {
       renderAiWelcome();
@@ -1405,8 +1457,12 @@
       aiTestStatus.className = 'mt-2.5 text-xs leading-relaxed hidden p-2.5 rounded-xl border';
       aiTestStatus.textContent = '';
     }
+    if (aiModelsFetchInfo) {
+      aiModelsFetchInfo.className = 'text-[11px] text-muted mt-1.5 hidden';
+      aiModelsFetchInfo.textContent = '';
+    }
 
-    selectAiModelCard(config.model);
+    populateModelDropdown(config.model);
 
     openFlowbiteModal('aiConfig');
     setTimeout(() => {
@@ -1416,7 +1472,7 @@
 
   function handleSaveAiConfig() {
     const rawKey = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
-    const selectedModel = aiModelSelect ? aiModelSelect.value : 'gemini-3.8-flash';
+    const selectedModel = aiModelSelect ? aiModelSelect.value.trim() : '';
     const rawBaseUrl = aiBaseUrlInput ? aiBaseUrlInput.value.trim() : '';
 
     if (rawKey) {
@@ -1425,7 +1481,9 @@
       localStorage.removeItem(SK_GEMINI_KEY);
     }
 
-    localStorage.setItem(SK_GEMINI_MODEL, selectedModel);
+    if (selectedModel) {
+      localStorage.setItem(SK_GEMINI_MODEL, selectedModel);
+    }
 
     if (rawBaseUrl) {
       localStorage.setItem(SK_GEMINI_BASE_URL, rawBaseUrl);
@@ -2024,6 +2082,10 @@ ACTION:ADD_TASK
       const type = aiApiKeyInput.type === 'password' ? 'text' : 'password';
       aiApiKeyInput.type = type;
     });
+  }
+
+  if (aiFetchModelsBtn) {
+    aiFetchModelsBtn.addEventListener('click', fetchLiveGeminiModels);
   }
 
   if (aiSummarizeBtn) {

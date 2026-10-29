@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-pwa-v10-gemini-38-31-4argon';
+const CACHE_NAME = 'todo-pwa-v11-live-models-only';
 
 const ASSETS = [
   './',
